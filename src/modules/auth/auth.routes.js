@@ -33,46 +33,29 @@ router.post(
   "/register",
   registerLimiter,
   validate(registerSchema),
-  registerController
+  registerController,
 );
 
-router.post(
-  "/login",
-  loginLimiter,
-  validate(loginSchema),
-  loginController
-);
+router.post("/login", loginLimiter, validate(loginSchema), loginController);
 
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
   validate(forgotPasswordSchema),
-  forgotPasswordController
+  forgotPasswordController,
 );
 
 router.post(
   "/reset-password/:token",
   forgotPasswordLimiter,
   validate(resetPasswordSchema),
-  resetPasswordController
+  resetPasswordController,
 );
 
-router.post(
-  "/refresh-token",
-  refreshTokenLimiter,
-  refreshTokenController
-);
+router.post("/refresh-token", refreshTokenLimiter, refreshTokenController);
 
-router.post(
-  "/logout",
-  protect,
-  logoutController
-);
+router.post("/logout", protect, logoutController);
 
-router.get(
-  "/me",
-  protect,
-  getMeController
-);
+router.get("/me", protect, getMeController);
 
 export default router;

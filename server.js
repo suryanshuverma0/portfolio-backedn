@@ -1,5 +1,5 @@
+
 import http from "http";
-import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import app from "./src/app.js";
@@ -11,7 +11,6 @@ import {
 import logger from "./src/utils/logger.js";
 import validateEnv from "./src/config/env.js";
 
-dotenv.config();
 
 validateEnv();
 

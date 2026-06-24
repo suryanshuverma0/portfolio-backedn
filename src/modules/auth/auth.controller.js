@@ -6,7 +6,7 @@ import {
   refreshAccessToken,
   logoutUser,
 } from "./auth.service.js";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 export const registerController = async (req, res, next) => {
   try {
     const { email, password } = req.validatedData;

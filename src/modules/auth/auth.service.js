@@ -73,8 +73,18 @@ export const loginUser = async (email, password) => {
     email,
   }).select("+password");
 
+ 
+
   if (!user) {
     throw new Error("Invalid credentials");
+  }
+
+  if (!user.isActive) {
+    throw new Error("Account disabled");
+  }
+
+   if (user.isGoogleUser) {
+    throw new Error("Please login using Google");
   }
 
   const isPasswordCorrect = await user.comparePassword(password);
@@ -88,6 +98,8 @@ export const loginUser = async (email, password) => {
   const refreshToken = generateRefreshToken(user._id);
 
   user.refreshToken = refreshToken;
+
+  user.lastLoginAt = new Date();
 
   await user.save();
 
@@ -147,7 +159,9 @@ export const resetPassword = async (token, password) => {
   }
 
   user.password = password;
- 
+
+  user.refreshToken = "";
+
   user.passwordResetToken = null;
 
   user.passwordResetExpires = null;
@@ -159,53 +173,35 @@ export const resetPassword = async (token, password) => {
   };
 };
 
-export const refreshAccessToken =
-  async (refreshToken) => {
-    if (!refreshToken) {
-      throw new Error(
-        "Refresh token missing",
-      );
-    }
+export const refreshAccessToken = async (refreshToken) => {
+  if (!refreshToken) {
+    throw new Error("Refresh token missing");
+  }
 
-    const decoded = jwt.verify(
-      refreshToken,
-      process.env.REFRESH_TOKEN_SECRET,
-    );
+  const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
 
-    const user =
-      await User.findById(decoded.id);
+  const user = await User.findById(decoded.id).select("+refreshToken");
 
-    if (!user) {
-      throw new Error(
-        "User not found",
-      );
-    }
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (!user.isActive) {
+    throw new Error("Account disabled");
+  }
 
-    if (
-      user.refreshToken !==
-      refreshToken
-    ) {
-      throw new Error(
-        "Invalid refresh token",
-      );
-    }
+  if (user.refreshToken !== refreshToken) {
+    throw new Error("Invalid refresh token");
+  }
 
-    const newAccessToken =
-      generateAccessToken(user._id);
+  const newAccessToken = generateAccessToken(user._id);
 
-    return {
-      accessToken:
-        newAccessToken,
-    };
+  return {
+    accessToken: newAccessToken,
   };
+};
 
-export const logoutUser = async (
-  userId,
-) => {
-  await User.findByIdAndUpdate(
-    userId,
-    {
-      refreshToken: "",
-    },
-  );
+export const logoutUser = async (userId) => {
+  await User.findByIdAndUpdate(userId, {
+    refreshToken: "",
+  });
 };
