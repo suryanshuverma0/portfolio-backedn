@@ -11,11 +11,13 @@ import logger from "./utils/logger.js";
 import { notFound, errorHandler } from "./middleware/error.middleware.js";
 
 import authRoutes from "./modules/auth/auth.routes.js";
-import profileRoutes from "./modules/profile/profile.routes.js"
-import imageRoutes from "./modules/upload/upload.routes.js"
-import educationRoutes from "./modules/education/education.routes.js"
-import statsRoutes from "./modules/stats/stat.routes.js"
-import experienceRoutes from "./modules/experience/experience.routes.js"
+import profileRoutes from "./modules/profile/profile.routes.js";
+import imageRoutes from "./modules/upload/upload.routes.js";
+import educationRoutes from "./modules/education/education.routes.js";
+import statsRoutes from "./modules/stats/stat.routes.js";
+import experienceRoutes from "./modules/experience/experience.routes.js";
+import serviceRoutes from "./modules/services/service.routes.js";
+import skillsRoutes from "./modules/skills/skills.routes.js";
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
@@ -50,12 +52,13 @@ app.get("/api/v1/health", (req, res) => {
 });
 
 app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/profile", profileRoutes)
-app.use("/api/v1/upload", imageRoutes)
-app.use("/api/v1/education", educationRoutes)
-app.use("/api/v1/stats", statsRoutes)
-app.use("/api/v1/experience", experienceRoutes)
-
+app.use("/api/v1/profile", profileRoutes);
+app.use("/api/v1/upload", imageRoutes);
+app.use("/api/v1/education", educationRoutes);
+app.use("/api/v1/stats", statsRoutes);
+app.use("/api/v1/experience", experienceRoutes);
+app.use("/api/v1/services", serviceRoutes);
+app.use("/api/v1/skill", skillsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
