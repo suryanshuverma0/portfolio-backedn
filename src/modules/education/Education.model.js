@@ -60,4 +60,4 @@ const educationSchema = new mongoose.Schema(
 
 const Education = mongoose.model("Education", educationSchema);
 
-export default Education;
+export default Education ;
