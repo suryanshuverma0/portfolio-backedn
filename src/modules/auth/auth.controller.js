@@ -20,7 +20,7 @@ export const registerController = async (req, res, next) => {
 
         secure: process.env.NODE_ENV === "production",
 
-        sameSite: "strict",
+        sameSite: "none",
 
         maxAge: 15 * 60 * 1000,
       })
@@ -29,7 +29,7 @@ export const registerController = async (req, res, next) => {
 
         secure: process.env.NODE_ENV === "production",
 
-        sameSite: "strict",
+        sameSite: "none",
 
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
@@ -58,7 +58,7 @@ export const loginController = async (req, res, next) => {
 
         secure: process.env.NODE_ENV === "production",
 
-        sameSite: "strict",
+        sameSite: "none",
 
         maxAge: 15 * 60 * 1000,
       })
@@ -67,7 +67,7 @@ export const loginController = async (req, res, next) => {
 
         secure: process.env.NODE_ENV === "production",
 
-        sameSite: "strict",
+        sameSite: "none",
 
         maxAge: 7 * 24 * 60 * 60 * 1000,
       })
@@ -167,7 +167,7 @@ export const refreshTokenController = async (req, res, next) => {
 
         secure: process.env.NODE_ENV === "production",
 
-        sameSite: "strict",
+        sameSite: "none",
 
         maxAge: 15 * 60 * 1000,
       })
