@@ -18,6 +18,8 @@ import statsRoutes from "./modules/stats/stat.routes.js";
 import experienceRoutes from "./modules/experience/experience.routes.js";
 import serviceRoutes from "./modules/services/service.routes.js";
 import skillsRoutes from "./modules/skills/skills.routes.js";
+import certificateRoutes from "./modules/certificates/certificate.routes.js"
+
 const app = express();
 app.set("trust proxy", 1);
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
@@ -59,6 +61,7 @@ app.use("/api/v1/stats", statsRoutes);
 app.use("/api/v1/experience", experienceRoutes);
 app.use("/api/v1/services", serviceRoutes);
 app.use("/api/v1/skill", skillsRoutes);
+app.use("/api/v1/certificates", certificateRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
