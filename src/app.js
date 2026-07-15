@@ -19,6 +19,7 @@ import experienceRoutes from "./modules/experience/experience.routes.js";
 import serviceRoutes from "./modules/services/service.routes.js";
 import skillsRoutes from "./modules/skills/skills.routes.js";
 import certificateRoutes from "./modules/certificates/certificate.routes.js"
+import projectRoutes from "./modules/projects/project.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -62,6 +63,7 @@ app.use("/api/v1/experience", experienceRoutes);
 app.use("/api/v1/services", serviceRoutes);
 app.use("/api/v1/skill", skillsRoutes);
 app.use("/api/v1/certificates", certificateRoutes);
+app.use("/api/v1/projects", projectRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
