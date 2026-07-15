@@ -30,3 +30,10 @@ export const refreshTokenLimiter =
     limit: 30,
     windowInSeconds: 60,
   });
+
+export const trackLimiter =
+  slidingWindowLimiter({
+    prefix: "analytics-track",
+    limit: 60,
+    windowInSeconds: 60,
+  });
