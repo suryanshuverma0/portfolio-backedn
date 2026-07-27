@@ -1,6 +1,6 @@
 import express from "express";
 
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 
 import {
@@ -22,20 +22,20 @@ router.get("/public", getPublicEducationsController);
 
 router.post(
   "/",
-  protect,
+  protectAdmin,
   validate(createEducationSchema),
   createEducationController,
 );
 
-router.get("/", protect, getEducationsController);
+router.get("/", protectAdmin, getEducationsController);
 
 router.put(
   "/:id",
-  protect,
+  protectAdmin,
   validate(updateEducationSchema),
   updateEducationController,
 );
 
-router.delete("/:id", protect, deleteEducationController);
+router.delete("/:id", protectAdmin, deleteEducationController);
 
 export default router;

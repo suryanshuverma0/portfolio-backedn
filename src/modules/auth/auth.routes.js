@@ -2,6 +2,7 @@ import express from "express";
 
 import validate from "../../middleware/validate.middleware.js";
 import protect from "../../middleware/auth.middleware.js";
+import requirePasswordAuthEnabled from "../../middleware/passwordAuthGate.middleware.js";
 
 import {
   registerLimiter,
@@ -32,15 +33,23 @@ const router = express.Router();
 router.post(
   "/register",
   registerLimiter,
+  requirePasswordAuthEnabled,
   validate(registerSchema),
   registerController,
 );
 
-router.post("/login", loginLimiter, validate(loginSchema), loginController);
+router.post(
+  "/login",
+  loginLimiter,
+  requirePasswordAuthEnabled,
+  validate(loginSchema),
+  loginController,
+);
 
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
+  requirePasswordAuthEnabled,
   validate(forgotPasswordSchema),
   forgotPasswordController,
 );
@@ -48,6 +57,7 @@ router.post(
 router.post(
   "/reset-password/:token",
   forgotPasswordLimiter,
+  requirePasswordAuthEnabled,
   validate(resetPasswordSchema),
   resetPasswordController,
 );

@@ -7,7 +7,7 @@ import {
   getPublicProfileController,
 } from "./profile.controller.js";
 
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 
 import validate from "../../middleware/validate.middleware.js";
 
@@ -22,16 +22,16 @@ router.get("/public", getPublicProfileController);
 
 router.post(
   "/",
-  protect,
+  protectAdmin,
   validate(createProfileSchema),
   createProfileController,
 );
 
-router.get("/", protect, getProfileController);
+router.get("/", protectAdmin, getProfileController);
 
 router.put(
   "/",
-  protect,
+  protectAdmin,
   validate(updateProfileSchema),
   updateProfileController,
 );

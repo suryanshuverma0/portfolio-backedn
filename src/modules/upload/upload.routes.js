@@ -1,6 +1,6 @@
 import express from "express";
 
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 
 import upload from "../../middleware/upload.middleware.js";
 
@@ -13,14 +13,14 @@ const router = express.Router();
 
 router.post(
   "/image",
-  protect,
+  protectAdmin,
   upload.single("image"),
   uploadImageController
 );
 
 router.post(
   "/images",
-  protect,
+  protectAdmin,
   upload.array("images", 10),
   uploadImagesController
 );

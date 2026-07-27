@@ -24,6 +24,7 @@ export const createSettingsSchema = z.object({
   resumeUrl: z.string().url().or(z.literal("")).optional(),
 
   maintenanceMode: z.boolean().optional(),
+  passwordAuthEnabled: z.boolean().optional(),
 });
 
 export const updateSettingsSchema = createSettingsSchema.partial();

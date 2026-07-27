@@ -1,6 +1,6 @@
 import express from "express";
 
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 
 import {
@@ -21,16 +21,16 @@ router.get("/public", getPublicSettingsController);
 
 router.post(
   "/",
-  protect,
+  protectAdmin,
   validate(createSettingsSchema),
   createSettingsController,
 );
 
-router.get("/", protect, getSettingsController);
+router.get("/", protectAdmin, getSettingsController);
 
 router.put(
   "/",
-  protect,
+  protectAdmin,
   validate(updateSettingsSchema),
   updateSettingsController,
 );

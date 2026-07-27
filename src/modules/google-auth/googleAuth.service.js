@@ -2,6 +2,7 @@ import jwt from "jsonwebtoken";
 
 import User from "../auth/auth.model.js";
 import googleClient from "../../utils/googleClient.js";
+import { isAdminEmail } from "../../utils/adminEmails.js";
 
 /*
   Token generation is intentionally re-implemented here (instead of importing
@@ -68,6 +69,12 @@ export const googleLogin = async (credential) => {
   if (!user.isActive) {
     throw new Error("Account disabled");
   }
+
+  // Only emails on the ADMIN_EMAILS allowlist get admin access; everyone
+  // else authenticates successfully but is left as a plain "user" (no
+  // dashboard access). Re-checked on every login so the allowlist can be
+  // grown later without needing manual DB edits.
+  user.role = isAdminEmail(normalizedEmail) ? "admin" : "user";
 
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);

@@ -35,6 +35,10 @@ const settingsSchema = new mongoose.Schema(
     resumeUrl: { type: String, trim: true, default: "" },
 
     maintenanceMode: { type: Boolean, default: false },
+
+    // Kill switch for the public /auth/register and /auth/login endpoints.
+    // Google sign-in is never affected by this flag.
+    passwordAuthEnabled: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

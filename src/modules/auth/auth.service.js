@@ -2,6 +2,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 
 import User from "./auth.model.js";
+import { isAdminEmail } from "../../utils/adminEmails.js";
 
 const generateAccessToken = (userId) => {
   return jwt.sign(
@@ -43,6 +44,7 @@ export const registerUser = async (email, password) => {
   const user = await User.create({
     email,
     password,
+    role: isAdminEmail(email) ? "admin" : "user",
   });
 
   const accessToken = generateAccessToken(user._id);
@@ -92,6 +94,10 @@ export const loginUser = async (email, password) => {
   if (!isPasswordCorrect) {
     throw new Error("Invalid credentials");
   }
+
+  // Keep role in sync with ADMIN_EMAILS in case the allowlist changed
+  // since this user last logged in.
+  user.role = isAdminEmail(user.email) ? "admin" : "user";
 
   const accessToken = generateAccessToken(user._id);
 

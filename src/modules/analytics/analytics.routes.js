@@ -1,6 +1,6 @@
 import express from "express";
 
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import { trackLimiter } from "../../middleware/limiters.js";
 
@@ -16,8 +16,8 @@ const router = express.Router();
 
 router.post("/track", trackLimiter, validate(trackSchema), trackController);
 
-router.get("/overview", protect, getOverviewController);
+router.get("/overview", protectAdmin, getOverviewController);
 
-router.get("/dashboard", protect, getDashboardSummaryController);
+router.get("/dashboard", protectAdmin, getDashboardSummaryController);
 
 export default router;

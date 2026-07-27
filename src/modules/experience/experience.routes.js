@@ -1,5 +1,5 @@
 import express from "express";
-import protect from "../../middleware/auth.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 
 import {
@@ -21,20 +21,20 @@ router.get("/public", getPublicExperiencesController);
 
 router.post(
   "/",
-  protect,
+  protectAdmin,
   validate(createExperienceSchema),
   createExperienceController,
 );
 
-router.get("/", protect, getExperiencesController);
+router.get("/", protectAdmin, getExperiencesController);
 
 router.put(
   "/:id",
-  protect,
+  protectAdmin,
   validate(updateExperienceSchema),
   updateExperienceController,
 );
 
-router.delete("/:id", protect, deleteExperienceController);
+router.delete("/:id", protectAdmin, deleteExperienceController);
 
 export default router;
