@@ -3,6 +3,8 @@ const requireAdmin = (req, res, next) => {
     return res.status(403).json({
       success: false,
       message: "Admin access required",
+      yourEmail: req.user?.email || null,
+      yourRole: req.user?.role || null,
     });
   }
 
