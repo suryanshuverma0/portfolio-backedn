@@ -3,10 +3,14 @@ import {
   getOverview,
   getDashboardSummary,
 } from "./analytics.service.js";
+import { getRequestMeta } from "./analytics.utils.js";
 
 export const trackController = async (req, res, next) => {
   try {
-    await trackPageView(req.validatedData);
+    await trackPageView({
+      ...req.validatedData,
+      ...getRequestMeta(req),
+    });
 
     res.status(201).json({
       success: true,

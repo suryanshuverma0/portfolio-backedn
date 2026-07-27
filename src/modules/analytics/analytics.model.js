@@ -22,6 +22,32 @@ const pageViewSchema = new mongoose.Schema(
       maxlength: 100,
       index: true,
     },
+
+    // All four derived server-side from the request (User-Agent + IP) in
+    // trackController — never trusted from client input.
+    device: {
+      type: String,
+      enum: ["desktop", "mobile", "tablet"],
+      default: "desktop",
+    },
+
+    browser: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
+
+    os: {
+      type: String,
+      trim: true,
+      maxlength: 50,
+    },
+
+    country: {
+      type: String,
+      trim: true,
+      maxlength: 2,
+    },
   },
   { timestamps: true },
 );
