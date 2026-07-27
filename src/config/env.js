@@ -7,6 +7,7 @@ const requiredEnvVars = [
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
   "REDIS_URL",
+  "GOOGLE_CLIENT_ID"
 ];
 
 const validateEnv = () => {

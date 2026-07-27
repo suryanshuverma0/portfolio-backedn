@@ -22,6 +22,7 @@ import certificateRoutes from "./modules/certificates/certificate.routes.js"
 import projectRoutes from "./modules/projects/project.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import settingsRoutes from "./modules/settings/settings.routes.js";
+import googleAuthRoutes from "./modules/google-auth/googleAuth.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -68,6 +69,7 @@ app.use("/api/v1/certificates", certificateRoutes);
 app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/settings", settingsRoutes);
+app.use("/api/v1/google-auth", googleAuthRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
