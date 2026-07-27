@@ -22,7 +22,7 @@ export const createSkillController = async (req, res, next) => {
 
 export const getSkillsController = async (req, res, next) => {
   try {
-    const skills = await getSkills(req.user._id);
+    const skills = await getSkills();
 
     res.status(200).json({
       success: true,
@@ -50,7 +50,6 @@ export const updateSkillController = async (req, res, next) => {
   try {
     const skill = await updateSkill(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -66,7 +65,7 @@ export const updateSkillController = async (req, res, next) => {
 
 export const deleteSkillController = async (req, res, next) => {
   try {
-    await deleteSkill(req.params.id, req.user._id);
+    await deleteSkill(req.params.id);
 
     res.status(200).json({
       success: true,

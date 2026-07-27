@@ -32,9 +32,7 @@ export const getProfileController = async (
   next
 ) => {
   try {
-    const profile = await getProfile(
-      req.user._id
-    );
+    const profile = await getProfile();
 
     res.status(200).json({
       success: true,
@@ -52,7 +50,6 @@ export const updateProfileController = async (
 ) => {
   try {
     const profile = await updateProfile(
-      req.user._id,
       req.validatedData
     );
 

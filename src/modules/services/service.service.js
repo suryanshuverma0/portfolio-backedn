@@ -19,12 +19,9 @@ export const createService = async (
   return service;
 };
 
-export const getServices = async (
-  userId,
-) => {
-  return await Service.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getServices = async () => {
+  return await Service.find({}).sort({ order: 1 });
 };
 
 export const getPublicServices =
@@ -36,14 +33,12 @@ export const getPublicServices =
 
 export const updateService = async (
   serviceId,
-  userId,
   updateData,
 ) => {
   const service =
     await Service.findOneAndUpdate(
       {
         _id: serviceId,
-        user: userId,
       },
       {
         $set: updateData,
@@ -57,7 +52,6 @@ export const updateService = async (
   if (!service) {
     logger.warn({
       action: "UPDATE_SERVICE",
-      userId,
       serviceId,
       message: "Service not found",
     });
@@ -67,7 +61,6 @@ export const updateService = async (
 
   logger.info({
     action: "UPDATE_SERVICE",
-    userId,
     serviceId,
   });
 
@@ -76,18 +69,15 @@ export const updateService = async (
 
 export const deleteService = async (
   serviceId,
-  userId,
 ) => {
   const service =
     await Service.findOneAndDelete({
       _id: serviceId,
-      user: userId,
     });
 
   if (!service) {
     logger.warn({
       action: "DELETE_SERVICE",
-      userId,
       serviceId,
       message: "Service not found",
     });
@@ -97,7 +87,6 @@ export const deleteService = async (
 
   logger.info({
     action: "DELETE_SERVICE",
-    userId,
     serviceId,
   });
 

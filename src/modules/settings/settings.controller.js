@@ -21,7 +21,7 @@ export const createSettingsController = async (req, res, next) => {
 
 export const getSettingsController = async (req, res, next) => {
   try {
-    const settings = await getSettings(req.user._id);
+    const settings = await getSettings();
 
     res.status(200).json({
       success: true,
@@ -47,7 +47,7 @@ export const getPublicSettingsController = async (req, res, next) => {
 
 export const updateSettingsController = async (req, res, next) => {
   try {
-    const settings = await updateSettings(req.user._id, req.validatedData);
+    const settings = await updateSettings(req.validatedData);
 
     res.status(200).json({
       success: true,

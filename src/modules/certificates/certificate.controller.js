@@ -25,7 +25,7 @@ export const createCertificateController = async (req, res, next) => {
 
 export const getCertificatesController = async (req, res, next) => {
   try {
-    const certificates = await getCertificates(req.user._id);
+    const certificates = await getCertificates();
 
     res.status(200).json({
       success: true,
@@ -53,7 +53,6 @@ export const updateCertificateController = async (req, res, next) => {
   try {
     const certificate = await updateCertificate(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -69,7 +68,7 @@ export const updateCertificateController = async (req, res, next) => {
 
 export const deleteCertificateController = async (req, res, next) => {
   try {
-    await deleteCertificate(req.params.id, req.user._id);
+    await deleteCertificate(req.params.id);
 
     res.status(200).json({
       success: true,

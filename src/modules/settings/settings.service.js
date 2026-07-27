@@ -1,7 +1,9 @@
 import Settings from "./settings.model.js";
 
+// Settings is a single shared document, same as Profile — not scoped per
+// admin account. `user` is kept as a "created by" reference only.
 export const createSettings = async (userId, settingsData) => {
-  const existingSettings = await Settings.findOne({ user: userId });
+  const existingSettings = await Settings.findOne({});
 
   if (existingSettings) {
     throw new Error("Settings already exist");
@@ -15,8 +17,8 @@ export const createSettings = async (userId, settingsData) => {
   return settings;
 };
 
-export const getSettings = async (userId) => {
-  const settings = await Settings.findOne({ user: userId });
+export const getSettings = async () => {
+  const settings = await Settings.findOne({});
 
   if (!settings) {
     throw new Error("Settings not found");
@@ -25,9 +27,9 @@ export const getSettings = async (userId) => {
   return settings;
 };
 
-export const updateSettings = async (userId, updateData) => {
+export const updateSettings = async (updateData) => {
   const settings = await Settings.findOneAndUpdate(
-    { user: userId },
+    {},
     { $set: updateData },
     { new: true, runValidators: true },
   );

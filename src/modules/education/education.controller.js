@@ -22,7 +22,7 @@ export const createEducationController = async (req, res, next) => {
 
 export const getEducationsController = async (req, res, next) => {
   try {
-    const educations = await getEducations(req.user._id);
+    const educations = await getEducations();
 
     res.status(200).json({
       success: true,
@@ -50,7 +50,6 @@ export const updateEducationController = async (req, res, next) => {
   try {
     const education = await updateEducation(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -66,7 +65,7 @@ export const updateEducationController = async (req, res, next) => {
 
 export const deleteEducationController = async (req, res, next) => {
   try {
-    await deleteEducation(req.params.id, req.user._id);
+    await deleteEducation(req.params.id);
 
     res.status(200).json({
       success: true,

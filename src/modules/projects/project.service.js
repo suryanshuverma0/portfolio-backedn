@@ -35,10 +35,9 @@ export const createProject = async (userId, projectData) => {
   return project;
 };
 
-export const getProjects = async (userId) => {
-  return await Project.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getProjects = async () => {
+  return await Project.find({}).sort({ order: 1 });
 };
 
 export const getPublicProjects = async () => {
@@ -60,16 +59,14 @@ export const getPublicProjectBySlug = async (slug) => {
   return project;
 };
 
-export const updateProject = async (projectId, userId, updateData) => {
+export const updateProject = async (projectId, updateData) => {
   const existingProject = await Project.findOne({
     _id: projectId,
-    user: userId,
   });
 
   if (!existingProject) {
     logger.warn({
       action: "UPDATE_PROJECT",
-      userId,
       projectId,
       message: "Project not found",
     });
@@ -101,23 +98,20 @@ export const updateProject = async (projectId, userId, updateData) => {
 
   logger.info({
     action: "UPDATE_PROJECT",
-    userId,
     projectId,
   });
 
   return project;
 };
 
-export const deleteProject = async (projectId, userId) => {
+export const deleteProject = async (projectId) => {
   const project = await Project.findOneAndDelete({
     _id: projectId,
-    user: userId,
   });
 
   if (!project) {
     logger.warn({
       action: "DELETE_PROJECT",
-      userId,
       projectId,
       message: "Project not found",
     });
@@ -131,7 +125,6 @@ export const deleteProject = async (projectId, userId) => {
 
   logger.info({
     action: "DELETE_PROJECT",
-    userId,
     projectId,
   });
 

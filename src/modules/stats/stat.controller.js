@@ -22,7 +22,7 @@ export const createStatController = async (req, res, next) => {
 
 export const getStatsController = async (req, res, next) => {
   try {
-    const stats = await getStats(req.user._id);
+    const stats = await getStats();
 
     res.status(200).json({
       success: true,
@@ -50,7 +50,6 @@ export const updateStatController = async (req, res, next) => {
   try {
     const stat = await updateStat(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -66,7 +65,7 @@ export const updateStatController = async (req, res, next) => {
 
 export const deleteStatController = async (req, res, next) => {
   try {
-    await deleteStat(req.params.id, req.user._id);
+    await deleteStat(req.params.id);
 
     res.status(200).json({
       success: true,

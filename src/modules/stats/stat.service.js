@@ -12,12 +12,9 @@ export const createStat = async (
   return stat;
 };
 
-export const getStats = async (
-  userId,
-) => {
-  return await Stat.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getStats = async () => {
+  return await Stat.find({}).sort({ order: 1 });
 };
 
 export const getPublicStats =
@@ -29,14 +26,12 @@ export const getPublicStats =
 
 export const updateStat = async (
   statId,
-  userId,
   updateData,
 ) => {
   const stat =
     await Stat.findOneAndUpdate(
       {
         _id: statId,
-        user: userId,
       },
       {
         $set: updateData,
@@ -56,12 +51,10 @@ export const updateStat = async (
 
 export const deleteStat = async (
   statId,
-  userId,
 ) => {
   const stat =
     await Stat.findOneAndDelete({
       _id: statId,
-      user: userId,
     });
 
   if (!stat) {

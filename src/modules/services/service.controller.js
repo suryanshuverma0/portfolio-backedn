@@ -22,7 +22,7 @@ export const createServiceController = async (req, res, next) => {
 
 export const getServicesController = async (req, res, next) => {
   try {
-    const services = await getServices(req.user._id);
+    const services = await getServices();
 
     res.status(200).json({
       success: true,
@@ -50,7 +50,6 @@ export const updateServiceController = async (req, res, next) => {
   try {
     const service = await updateService(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -66,7 +65,7 @@ export const updateServiceController = async (req, res, next) => {
 
 export const deleteServiceController = async (req, res, next) => {
   try {
-    await deleteService(req.params.id, req.user._id);
+    await deleteService(req.params.id);
 
     res.status(200).json({
       success: true,

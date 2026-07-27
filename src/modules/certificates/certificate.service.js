@@ -17,10 +17,9 @@ export const createCertificate = async (userId, certificateData) => {
   return certificate;
 };
 
-export const getCertificates = async (userId) => {
-  return await Certificate.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getCertificates = async () => {
+  return await Certificate.find({}).sort({ order: 1 });
 };
 
 export const getPublicCertificates = async () => {
@@ -29,16 +28,14 @@ export const getPublicCertificates = async () => {
   }).sort({ order: 1 });
 };
 
-export const updateCertificate = async (certificateId, userId, updateData) => {
+export const updateCertificate = async (certificateId, updateData) => {
   const existingCertificate = await Certificate.findOne({
     _id: certificateId,
-    user: userId,
   });
 
   if (!existingCertificate) {
     logger.warn({
       action: "UPDATE_CERTIFICATE",
-      userId,
       certificateId,
       message: "Certificate not found",
     });
@@ -66,23 +63,20 @@ export const updateCertificate = async (certificateId, userId, updateData) => {
 
   logger.info({
     action: "UPDATE_CERTIFICATE",
-    userId,
     certificateId,
   });
 
   return certificate;
 };
 
-export const deleteCertificate = async (certificateId, userId) => {
+export const deleteCertificate = async (certificateId) => {
   const certificate = await Certificate.findOneAndDelete({
     _id: certificateId,
-    user: userId,
   });
 
   if (!certificate) {
     logger.warn({
       action: "DELETE_CERTIFICATE",
-      userId,
       certificateId,
       message: "Certificate not found",
     });
@@ -96,7 +90,6 @@ export const deleteCertificate = async (certificateId, userId) => {
 
   logger.info({
     action: "DELETE_CERTIFICATE",
-    userId,
     certificateId,
   });
 

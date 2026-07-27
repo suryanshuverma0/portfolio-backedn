@@ -22,7 +22,7 @@ export const createExperienceController = async (req, res, next) => {
 
 export const getExperiencesController = async (req, res, next) => {
   try {
-    const experiences = await getExperiences(req.user._id);
+    const experiences = await getExperiences();
 
     res.status(200).json({
       success: true,
@@ -50,7 +50,6 @@ export const updateExperienceController = async (req, res, next) => {
   try {
     const experience = await updateExperience(
       req.params.id,
-      req.user._id,
       req.validatedData,
     );
 
@@ -66,7 +65,7 @@ export const updateExperienceController = async (req, res, next) => {
 
 export const deleteExperienceController = async (req, res, next) => {
   try {
-    await deleteExperience(req.params.id, req.user._id);
+    await deleteExperience(req.params.id);
 
     res.status(200).json({
       success: true,

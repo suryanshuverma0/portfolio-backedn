@@ -1,9 +1,10 @@
 import Profile from "./profile.model.js";
 
+// Profile is a single shared document (a single-owner portfolio, possibly
+// edited by more than one trusted admin) — not scoped per-account.
+// `user` is kept on the record as a "created by" reference only.
 export const createProfile = async (userId, profileData) => {
-  const existingProfile = await Profile.findOne({
-    user: userId,
-  });
+  const existingProfile = await Profile.findOne({});
 
   if (existingProfile) {
     throw new Error("Profile already exists");
@@ -18,10 +19,8 @@ export const createProfile = async (userId, profileData) => {
   return profile;
 };
 
-export const getProfile = async (userId) => {
-  const profile = await Profile.findOne({
-    user: userId,
-  }).populate("user", "email role");
+export const getProfile = async () => {
+  const profile = await Profile.findOne({}).populate("user", "email role");
 
   if (!profile) {
     throw new Error("Profile not found");
@@ -30,11 +29,9 @@ export const getProfile = async (userId) => {
   return profile;
 };
 
-export const updateProfile = async (userId, updateData) => {
+export const updateProfile = async (updateData) => {
   const profile = await Profile.findOneAndUpdate(
-    {
-      user: userId,
-    },
+    {},
 
     {
       $set: updateData,

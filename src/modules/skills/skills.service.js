@@ -16,10 +16,9 @@ export const createSkill = async (userId, skillData) => {
   return skill;
 };
 
-export const getSkills = async (userId) => {
-  return await Skill.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getSkills = async () => {
+  return await Skill.find({}).sort({ order: 1 });
 };
 
 export const getPublicSkills = async () => {
@@ -28,11 +27,10 @@ export const getPublicSkills = async () => {
   }).sort({ order: 1 });
 };
 
-export const updateSkill = async (skillId, userId, updateData) => {
+export const updateSkill = async (skillId, updateData) => {
   const skill = await Skill.findOneAndUpdate(
     {
       _id: skillId,
-      user: userId,
     },
     {
       $set: updateData,
@@ -46,7 +44,6 @@ export const updateSkill = async (skillId, userId, updateData) => {
   if (!skill) {
     logger.warn({
       action: "UPDATE_SKILL",
-      userId,
       skillId,
       message: "Skill not found",
     });
@@ -56,23 +53,20 @@ export const updateSkill = async (skillId, userId, updateData) => {
 
   logger.info({
     action: "UPDATE_SKILL",
-    userId,
     skillId,
   });
 
   return skill;
 };
 
-export const deleteSkill = async (skillId, userId) => {
+export const deleteSkill = async (skillId) => {
   const skill = await Skill.findOneAndDelete({
     _id: skillId,
-    user: userId,
   });
 
   if (!skill) {
     logger.warn({
       action: "DELETE_SKILL",
-      userId,
       skillId,
       message: "Skill not found",
     });
@@ -82,7 +76,6 @@ export const deleteSkill = async (skillId, userId) => {
 
   logger.info({
     action: "DELETE_SKILL",
-    userId,
     skillId,
   });
 

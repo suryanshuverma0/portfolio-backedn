@@ -9,10 +9,10 @@ export const createEducation = async (userId, educationData) => {
   return education;
 };
 
-export const getEducations = async (userId) => {
-  return await Education.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account. Any admin can list,
+// edit, or delete any item.
+export const getEducations = async () => {
+  return await Education.find({}).sort({ order: 1 });
 };
 
 export const getPublicEducations = async () => {
@@ -21,11 +21,10 @@ export const getPublicEducations = async () => {
   }).sort({ order: 1 });
 };
 
-export const updateEducation = async (educationId, userId, updateData) => {
+export const updateEducation = async (educationId, updateData) => {
   const education = await Education.findOneAndUpdate(
     {
       _id: educationId,
-      user: userId,
     },
     {
       $set: updateData,
@@ -43,10 +42,9 @@ export const updateEducation = async (educationId, userId, updateData) => {
   return education;
 };
 
-export const deleteEducation = async (educationId, userId) => {
+export const deleteEducation = async (educationId) => {
   const education = await Education.findOneAndDelete({
     _id: educationId,
-    user: userId,
   });
 
   if (!education) {

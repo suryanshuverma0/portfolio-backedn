@@ -20,12 +20,9 @@ export const createExperience = async (
   return experience;
 };
 
-export const getExperiences = async (
-  userId,
-) => {
-  return await Experience.find({
-    user: userId,
-  }).sort({ order: 1 });
+// Shared site content — not scoped per admin account.
+export const getExperiences = async () => {
+  return await Experience.find({}).sort({ order: 1 });
 };
 
 export const getPublicExperiences =
@@ -37,14 +34,12 @@ export const getPublicExperiences =
 
 export const updateExperience = async (
   experienceId,
-  userId,
   updateData,
 ) => {
   const experience =
     await Experience.findOneAndUpdate(
       {
         _id: experienceId,
-        user: userId,
       },
       {
         $set: updateData,
@@ -58,7 +53,6 @@ export const updateExperience = async (
   if (!experience) {
     logger.warn({
       action: "UPDATE_EXPERIENCE",
-      userId,
       experienceId,
       message: "Experience not found",
     });
@@ -70,7 +64,6 @@ export const updateExperience = async (
 
   logger.info({
     action: "UPDATE_EXPERIENCE",
-    userId,
     experienceId,
   });
 
@@ -79,18 +72,15 @@ export const updateExperience = async (
 
 export const deleteExperience = async (
   experienceId,
-  userId,
 ) => {
   const experience =
     await Experience.findOneAndDelete({
       _id: experienceId,
-      user: userId,
     });
 
   if (!experience) {
     logger.warn({
       action: "DELETE_EXPERIENCE",
-      userId,
       experienceId,
       message: "Experience not found",
     });
@@ -102,7 +92,6 @@ export const deleteExperience = async (
 
   logger.info({
     action: "DELETE_EXPERIENCE",
-    userId,
     experienceId,
   });
 
