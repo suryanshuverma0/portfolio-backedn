@@ -1,0 +1,17 @@
+name: Keep Render backend awake
+
+on:
+  schedule:
+    # Every 10 minutes — comfortably under Render free tier's ~15 minute
+    # inactivity sleep timeout.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -sf https://portfolio-backend-uy0a.onrender.com/api/v1/health \
+            || echo "Health check failed (service may be cold-starting)"

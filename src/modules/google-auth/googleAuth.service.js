@@ -3,6 +3,29 @@ import jwt from "jsonwebtoken";
 import User from "../auth/auth.model.js";
 import googleClient from "../../utils/googleClient.js";
 import { isAdminEmail } from "../../utils/adminEmails.js";
+import { isPublicAccessEnabled } from "../../utils/publicAccess.js";
+
+const restrictedAccessError = () => {
+  const error = new Error(
+    "Access is restricted to authorized administrators",
+  );
+  error.statusCode = 403;
+  return error;
+};
+
+// Admin emails always pass; everyone else only passes while the admin has
+// public access turned on in Settings.
+const assertAccessAllowed = async (admin) => {
+  if (admin) {
+    return;
+  }
+
+  const allowed = await isPublicAccessEnabled();
+
+  if (!allowed) {
+    throw restrictedAccessError();
+  }
+};
 
 /*
   Token generation is intentionally re-implemented here (instead of importing
@@ -47,6 +70,10 @@ export const googleLogin = async (credential) => {
 
   const normalizedEmail = email.toLowerCase();
 
+  const admin = isAdminEmail(normalizedEmail);
+
+  await assertAccessAllowed(admin);
+
   let user = await User.findOne({ googleId });
 
   if (!user) {
@@ -70,11 +97,7 @@ export const googleLogin = async (credential) => {
     throw new Error("Account disabled");
   }
 
-  // Only emails on the ADMIN_EMAILS allowlist get admin access; everyone
-  // else authenticates successfully but is left as a plain "user" (no
-  // dashboard access). Re-checked on every login so the allowlist can be
-  // grown later without needing manual DB edits.
-  user.role = isAdminEmail(normalizedEmail) ? "admin" : "user";
+  user.role = admin ? "admin" : "user";
 
   const accessToken = generateAccessToken(user._id);
   const refreshToken = generateRefreshToken(user._id);

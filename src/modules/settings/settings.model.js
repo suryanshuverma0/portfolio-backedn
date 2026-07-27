@@ -36,9 +36,10 @@ const settingsSchema = new mongoose.Schema(
 
     maintenanceMode: { type: Boolean, default: false },
 
-    // Kill switch for the public /auth/register and /auth/login endpoints.
-    // Google sign-in is never affected by this flag.
-    passwordAuthEnabled: { type: Boolean, default: true },
+    // When false, only ADMIN_EMAILS addresses can register or log in
+    // (password or Google) — everyone else is blocked, existing accounts
+    // included. When true, anyone can register/log in via either method.
+    publicAccessEnabled: { type: Boolean, default: true },
   },
   { timestamps: true },
 );

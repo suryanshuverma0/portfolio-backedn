@@ -5,6 +5,8 @@ import {
   resetPassword,
   refreshAccessToken,
   logoutUser,
+  getAllUsers,
+  deleteUser,
 } from "./auth.service.js";
 import jwt from "jsonwebtoken";
 export const registerController = async (req, res, next) => {
@@ -87,14 +89,16 @@ export const forgotPasswordController = async (req, res, next) => {
   try {
     const { email } = req.validatedData;
 
-    const resetToken = await forgotPassword(email);
+    await forgotPassword(email);
 
+    // Always the same response whether or not an account exists for this
+    // email — forgotPassword() silently no-ops for unknown/ineligible
+    // accounts so this endpoint can't be used to enumerate users.
     res.status(200).json({
       success: true,
 
-      message: "Password reset token generated",
-
-      resetToken,
+      message:
+        "If an account exists for that email, a reset link has been sent.",
     });
   } catch (error) {
     next(error);
@@ -152,6 +156,36 @@ export const getMeController = async (req, res) => {
 
     user: req.user,
   });
+};
+
+export const getAllUsersController = async (req, res, next) => {
+  try {
+    const users = await getAllUsers();
+
+    res.status(200).json({
+      success: true,
+
+      data: users,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteUserController = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    await deleteUser(id, req.user._id);
+
+    res.status(200).json({
+      success: true,
+
+      message: "User deleted",
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 export const refreshTokenController = async (req, res, next) => {

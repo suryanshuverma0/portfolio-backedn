@@ -2,7 +2,7 @@ import express from "express";
 
 import validate from "../../middleware/validate.middleware.js";
 import protect from "../../middleware/auth.middleware.js";
-import requirePasswordAuthEnabled from "../../middleware/passwordAuthGate.middleware.js";
+import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 
 import {
   registerLimiter,
@@ -26,6 +26,8 @@ import {
   logoutController,
   getMeController,
   refreshTokenController,
+  getAllUsersController,
+  deleteUserController,
 } from "./auth.controller.js";
 
 const router = express.Router();
@@ -33,23 +35,15 @@ const router = express.Router();
 router.post(
   "/register",
   registerLimiter,
-  requirePasswordAuthEnabled,
   validate(registerSchema),
   registerController,
 );
 
-router.post(
-  "/login",
-  loginLimiter,
-  requirePasswordAuthEnabled,
-  validate(loginSchema),
-  loginController,
-);
+router.post("/login", loginLimiter, validate(loginSchema), loginController);
 
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
-  requirePasswordAuthEnabled,
   validate(forgotPasswordSchema),
   forgotPasswordController,
 );
@@ -57,7 +51,6 @@ router.post(
 router.post(
   "/reset-password/:token",
   forgotPasswordLimiter,
-  requirePasswordAuthEnabled,
   validate(resetPasswordSchema),
   resetPasswordController,
 );
@@ -67,5 +60,9 @@ router.post("/refresh-token", refreshTokenLimiter, refreshTokenController);
 router.post("/logout", protect, logoutController);
 
 router.get("/me", protect, getMeController);
+
+router.get("/users", protectAdmin, getAllUsersController);
+
+router.delete("/users/:id", protectAdmin, deleteUserController);
 
 export default router;
