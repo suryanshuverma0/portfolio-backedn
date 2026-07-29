@@ -56,3 +56,35 @@ export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
     `,
   });
 };
+
+export const sendContactAcknowledgmentEmail = async (toEmail, name) => {
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn(
+      `RESEND_API_KEY not set — skipping contact acknowledgment email for ${toEmail}`,
+    );
+    return;
+  }
+
+  const client = getResendClient();
+
+  const fromAddress =
+    process.env.RESEND_FROM_EMAIL || "Portfolio <onboarding@resend.dev>";
+
+  await client.emails.send({
+    from: fromAddress,
+    to: toEmail,
+    subject: "Thanks for reaching out",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="margin-bottom: 8px;">Thanks for reaching out${name ? `, ${name}` : ""}</h2>
+        <p style="color: #444; line-height: 1.5;">
+          I've received your message and will get back to you as soon as
+          I can.
+        </p>
+        <p style="color: #444; line-height: 1.5;">
+          — Suryanshu
+        </p>
+      </div>
+    `,
+  });
+};
