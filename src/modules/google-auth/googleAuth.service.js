@@ -4,6 +4,7 @@ import User from "../auth/auth.model.js";
 import googleClient from "../../utils/googleClient.js";
 import { isAdminEmail } from "../../utils/adminEmails.js";
 import { isPublicAccessEnabled } from "../../utils/publicAccess.js";
+import logger from "../../utils/logger.js";
 
 const restrictedAccessError = () => {
   const error = new Error(
@@ -15,7 +16,7 @@ const restrictedAccessError = () => {
 
 // Admin emails always pass; everyone else only passes while the admin has
 // public access turned on in Settings.
-const assertAccessAllowed = async (admin) => {
+const assertAccessAllowed = async (admin, email) => {
   if (admin) {
     return;
   }
@@ -23,6 +24,7 @@ const assertAccessAllowed = async (admin) => {
   const allowed = await isPublicAccessEnabled();
 
   if (!allowed) {
+    logger.warn({ action: "ACCESS_RESTRICTED", email, method: "google" });
     throw restrictedAccessError();
   }
 };
@@ -72,7 +74,7 @@ export const googleLogin = async (credential) => {
 
   const admin = isAdminEmail(normalizedEmail);
 
-  await assertAccessAllowed(admin);
+  await assertAccessAllowed(admin, normalizedEmail);
 
   let user = await User.findOne({ googleId });
 
@@ -94,6 +96,7 @@ export const googleLogin = async (credential) => {
   }
 
   if (!user.isActive) {
+    logger.warn({ action: "LOGIN_FAILED", email: normalizedEmail, method: "google", reason: "account_disabled" });
     throw new Error("Account disabled");
   }
 
@@ -106,6 +109,8 @@ export const googleLogin = async (credential) => {
   user.lastLoginAt = new Date();
 
   await user.save();
+
+  logger.info({ action: "LOGIN_SUCCESS", email: normalizedEmail, method: "google", userId: user._id, role: user.role });
 
   return {
     user: {

@@ -7,7 +7,9 @@ import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import {
   registerLimiter,
   loginLimiter,
+  loginByEmailLimiter,
   forgotPasswordLimiter,
+  forgotPasswordByEmailLimiter,
   refreshTokenLimiter,
 } from "../../middleware/limiters.js";
 
@@ -39,11 +41,18 @@ router.post(
   registerController,
 );
 
-router.post("/login", loginLimiter, validate(loginSchema), loginController);
+router.post(
+  "/login",
+  loginLimiter,
+  loginByEmailLimiter,
+  validate(loginSchema),
+  loginController,
+);
 
 router.post(
   "/forgot-password",
   forgotPasswordLimiter,
+  forgotPasswordByEmailLimiter,
   validate(forgotPasswordSchema),
   forgotPasswordController,
 );

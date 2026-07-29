@@ -5,6 +5,7 @@ import User from "./auth.model.js";
 import { isAdminEmail } from "../../utils/adminEmails.js";
 import { isPublicAccessEnabled } from "../../utils/publicAccess.js";
 import { sendPasswordResetEmail } from "../../utils/email.js";
+import logger from "../../utils/logger.js";
 
 const restrictedAccessError = () => {
   const error = new Error(
@@ -16,7 +17,7 @@ const restrictedAccessError = () => {
 
 // Admin emails always pass; everyone else only passes while the admin has
 // public access turned on in Settings.
-const assertAccessAllowed = async (admin) => {
+const assertAccessAllowed = async (admin, email) => {
   if (admin) {
     return;
   }
@@ -24,6 +25,7 @@ const assertAccessAllowed = async (admin) => {
   const allowed = await isPublicAccessEnabled();
 
   if (!allowed) {
+    logger.warn({ action: "ACCESS_RESTRICTED", email });
     throw restrictedAccessError();
   }
 };
@@ -59,13 +61,14 @@ const generateRefreshToken = (userId) => {
 export const registerUser = async (email, password) => {
   const admin = isAdminEmail(email);
 
-  await assertAccessAllowed(admin);
+  await assertAccessAllowed(admin, email);
 
   const existingUser = await User.findOne({
     email,
   });
 
   if (existingUser) {
+    logger.warn({ action: "REGISTER_FAILED", email, reason: "already_exists" });
     throw new Error("User already exists");
   }
 
@@ -82,6 +85,8 @@ export const registerUser = async (email, password) => {
   user.refreshToken = refreshToken;
 
   await user.save();
+
+  logger.info({ action: "REGISTER_SUCCESS", email, userId: user._id, role: user.role });
 
   return {
     user: {
@@ -103,13 +108,13 @@ export const loginUser = async (email, password) => {
     email,
   }).select("+password");
 
- 
-
   if (!user) {
+    logger.warn({ action: "LOGIN_FAILED", email, reason: "no_account" });
     throw new Error("Invalid credentials");
   }
 
   if (!user.isActive) {
+    logger.warn({ action: "LOGIN_FAILED", email, reason: "account_disabled" });
     throw new Error("Account disabled");
   }
 
@@ -117,16 +122,18 @@ export const loginUser = async (email, password) => {
    // both a password AND Google, and should be able to use either. Only
    // block accounts that never had a password set at all.
    if (!user.password) {
+    logger.warn({ action: "LOGIN_FAILED", email, reason: "google_only_account" });
     throw new Error("Please login using Google");
   }
 
   const admin = isAdminEmail(user.email);
 
-  await assertAccessAllowed(admin);
+  await assertAccessAllowed(admin, user.email);
 
   const isPasswordCorrect = await user.comparePassword(password);
 
   if (!isPasswordCorrect) {
+    logger.warn({ action: "LOGIN_FAILED", email, reason: "bad_password" });
     throw new Error("Invalid credentials");
   }
 
@@ -141,6 +148,8 @@ export const loginUser = async (email, password) => {
   user.lastLoginAt = new Date();
 
   await user.save();
+
+  logger.info({ action: "LOGIN_SUCCESS", email, userId: user._id, role: user.role });
 
   return {
     user: {
@@ -217,7 +226,7 @@ export const resetPassword = async (token, password) => {
     throw new Error("Invalid or expired token");
   }
 
-  await assertAccessAllowed(isAdminEmail(user.email));
+  await assertAccessAllowed(isAdminEmail(user.email), user.email);
 
   user.password = password;
 

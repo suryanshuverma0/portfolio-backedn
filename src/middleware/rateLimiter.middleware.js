@@ -4,14 +4,28 @@ import crypto from "crypto";
 import redis from "../config/redis.js";
 import { slidingWindowLua } from "./lua/slidingWindow.lua.js";
 
+// Cloudflare sits in front of this app and overwrites this header with the
+// real visitor IP on every request, unlike a bare X-Forwarded-For entry
+// (which a client can set to anything before it ever reaches Cloudflare).
+// Falls back to req.ip for local dev / anywhere not behind Cloudflare.
+const defaultKeyBy = (req) => req.headers["cf-connecting-ip"] || req.ip;
+
 export const slidingWindowLimiter = ({
   prefix,
   limit,
   windowInSeconds,
+  keyBy = defaultKeyBy,
 }) => {
   return async (req, res, next) => {
     try {
-      const identifier = req.ip;
+      const identifier = keyBy(req);
+
+      if (!identifier) {
+        // Nothing usable to key on (e.g. an email-keyed limiter but no
+        // email in this particular request) — let validation downstream
+        // reject it instead of rate-limiting on nothing.
+        return next();
+      }
 
       const key = `${prefix}:${identifier}`;
 
