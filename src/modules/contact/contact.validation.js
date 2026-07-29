@@ -9,3 +9,7 @@ export const createMessageSchema = z.object({
 
   message: z.string().min(1, "Message is required").max(3000),
 });
+
+export const replyMessageSchema = z.object({
+  message: z.string().min(1, "Reply message is required").max(5000),
+});

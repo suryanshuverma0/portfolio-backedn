@@ -45,6 +45,20 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // The admin's manual reply, sent for real via Resend — kept alongside
+    // the original message so there's a record of what was said back.
+    adminReply: {
+      type: String,
+      trim: true,
+      maxlength: 5000,
+      default: null,
+    },
+
+    repliedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );

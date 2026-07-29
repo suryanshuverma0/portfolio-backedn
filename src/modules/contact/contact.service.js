@@ -1,5 +1,6 @@
 import Message from "./contact.model.js";
-import { sendContactAcknowledgmentEmail } from "../../utils/email.js";
+import Settings from "../settings/settings.model.js";
+import { sendContactAcknowledgmentEmail, sendContactReplyEmail } from "../../utils/email.js";
 import logger from "../../utils/logger.js";
 
 export const createMessage = async ({ name, email, subject, message }) => {
@@ -48,4 +49,33 @@ export const deleteMessage = async (id) => {
   }
 
   return message;
+};
+
+export const replyToMessage = async (id, replyMessage) => {
+  const original = await Message.findById(id);
+
+  if (!original) {
+    throw new Error("Message not found");
+  }
+
+  // So that if the visitor hits "reply" in their own email client, it
+  // lands in the actual owner's inbox, not the Resend sender address.
+  const settings = await Settings.findOne({}).select("contactEmail").lean();
+
+  await sendContactReplyEmail({
+    toEmail: original.email,
+    toName: original.name,
+    subject: `Re: ${original.subject || "your message"}`,
+    replyMessage,
+    originalMessage: original.message,
+    replyToEmail: settings?.contactEmail || undefined,
+  });
+
+  original.adminReply = replyMessage;
+  original.repliedAt = new Date();
+  original.isRead = true;
+
+  await original.save();
+
+  return original;
 };

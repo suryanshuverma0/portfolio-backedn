@@ -3,6 +3,7 @@ import {
   getMessages,
   markMessageRead,
   deleteMessage,
+  replyToMessage,
 } from "./contact.service.js";
 
 export const createMessageController = async (req, res, next) => {
@@ -52,6 +53,22 @@ export const deleteMessageController = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Message deleted",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const replyToMessageController = async (req, res, next) => {
+  try {
+    const { message } = req.validatedData;
+
+    const updated = await replyToMessage(req.params.id, message);
+
+    res.status(200).json({
+      success: true,
+      message: "Reply sent",
+      data: updated,
     });
   } catch (error) {
     next(error);

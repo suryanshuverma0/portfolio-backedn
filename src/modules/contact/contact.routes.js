@@ -9,9 +9,10 @@ import {
   getMessagesController,
   markMessageReadController,
   deleteMessageController,
+  replyToMessageController,
 } from "./contact.controller.js";
 
-import { createMessageSchema } from "./contact.validation.js";
+import { createMessageSchema, replyMessageSchema } from "./contact.validation.js";
 
 const router = express.Router();
 
@@ -35,5 +36,12 @@ router.get("/", protectAdmin, getMessagesController);
 router.put("/:id/read", protectAdmin, markMessageReadController);
 
 router.delete("/:id", protectAdmin, deleteMessageController);
+
+router.post(
+  "/:id/reply",
+  protectAdmin,
+  validate(replyMessageSchema),
+  replyToMessageController,
+);
 
 export default router;
