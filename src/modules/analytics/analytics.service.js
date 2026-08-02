@@ -291,37 +291,25 @@ export const getOverview = async (rangeDays) => {
 };
 
 export const getDashboardSummary = async () => {
-  const [summary, activeVisitorIds] = await Promise.all([
+  const [summary, activeVisitorIds, unreadMessages, pendingComments] = await Promise.all([
     // v2: bumped the cache key so this can never return a stale pre-v2
-    // cached blob (missing posts/unreadMessages/pendingComments/viewsByDay)
-    // left over from before those fields existed — same key + old shape
-    // would otherwise silently serve zeros for up to 5 minutes post-deploy.
+    // cached blob (missing posts/viewsByDay) left over from before those
+    // fields existed — same key + old shape would otherwise silently
+    // serve zeros for up to 5 minutes post-deploy.
     getOrSetCache("analytics:dashboard:v2", 300, async () => {
       const todayStart = startOfDay(new Date());
 
-      const [
-        projects,
-        skills,
-        certificates,
-        experience,
-        services,
-        posts,
-        unreadMessages,
-        pendingComments,
-        viewsToday,
-        overview,
-      ] = await Promise.all([
-        Project.countDocuments({}),
-        Skill.countDocuments({}),
-        Certificate.countDocuments({}),
-        Experience.countDocuments({}),
-        Service.countDocuments({}),
-        Post.countDocuments({}),
-        Message.countDocuments({ isRead: false }),
-        Comment.countDocuments({ isApproved: false }),
-        PageView.countDocuments({ createdAt: { $gte: todayStart } }),
-        getCachedOverview(30),
-      ]);
+      const [projects, skills, certificates, experience, services, posts, viewsToday, overview] =
+        await Promise.all([
+          Project.countDocuments({}),
+          Skill.countDocuments({}),
+          Certificate.countDocuments({}),
+          Experience.countDocuments({}),
+          Service.countDocuments({}),
+          Post.countDocuments({}),
+          PageView.countDocuments({ createdAt: { $gte: todayStart } }),
+          getCachedOverview(30),
+        ]);
 
       return {
         projects,
@@ -330,8 +318,6 @@ export const getDashboardSummary = async () => {
         experience,
         services,
         posts,
-        unreadMessages,
-        pendingComments,
         viewsToday,
         totalViews: overview.totalViews,
         uniqueVisitors: overview.uniqueVisitors,
@@ -345,11 +331,23 @@ export const getDashboardSummary = async () => {
     PageView.distinct("visitorId", {
       createdAt: { $gte: new Date(Date.now() - 5 * MINUTE_MS) },
     }),
+
+    // Also deliberately not cached — these back "Needs Attention" cards
+    // that exist specifically to prompt immediate action (a new message,
+    // a comment to moderate). Sitting behind the same 5-minute cache as
+    // the content counts above would mean a message you just marked read,
+    // or a comment that just came in, doesn't match reality on the
+    // dashboard for up to 5 minutes even though the Messages/Comments
+    // pages themselves are always live.
+    Message.countDocuments({ isRead: false }),
+    Comment.countDocuments({ isApproved: false }),
   ]);
 
   return {
     ...summary,
     activeNow: activeVisitorIds.length,
+    unreadMessages,
+    pendingComments,
   };
 };
 
