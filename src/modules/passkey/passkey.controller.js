@@ -1,6 +1,9 @@
 import {
   getRegistrationOptions,
   verifyRegistration,
+  requestPasskeyLink,
+  getLinkOptions,
+  verifyLink,
   getSignupOptions,
   verifySignup,
   getAuthenticationOptions,
@@ -49,6 +52,53 @@ export const registrationVerifyController = async (req, res, next) => {
       message: "Passkey registered",
       data: passkey,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const linkRequestController = async (req, res, next) => {
+  try {
+    const { email } = req.validatedData;
+
+    await requestPasskeyLink(email);
+
+    res.status(200).json({
+      success: true,
+      message: "If an account exists for that email, a link has been sent.",
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const linkOptionsController = async (req, res, next) => {
+  try {
+    const { token } = req.validatedData;
+
+    const options = await getLinkOptions(token);
+
+    res.status(200).json({ success: true, data: options });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const linkVerifyController = async (req, res, next) => {
+  try {
+    const { token, response, name } = req.validatedData;
+
+    const { user, accessToken, refreshToken } = await verifyLink(token, response, name);
+
+    res
+      .status(201)
+      .cookie("accessToken", accessToken, accessCookieOptions)
+      .cookie("refreshToken", refreshToken, refreshCookieOptions)
+      .json({
+        success: true,
+        message: "Passkey added",
+        data: user,
+      });
   } catch (error) {
     next(error);
   }

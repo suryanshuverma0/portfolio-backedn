@@ -13,6 +13,7 @@ import Passkey from "./passkey.model.js";
 import redis from "../../config/redis.js";
 import { isAdminEmail } from "../../utils/adminEmails.js";
 import { isPublicAccessEnabled } from "../../utils/publicAccess.js";
+import { sendPasskeyLinkEmail } from "../../utils/email.js";
 import logger from "../../utils/logger.js";
 
 /*
@@ -33,6 +34,11 @@ const CHALLENGE_TTL_SECONDS = 5 * 60;
 const registrationChallengeKey = (userId) => `webauthn:reg-challenge:${userId}`;
 const authChallengeKey = (challenge) => `webauthn:auth-challenge:${challenge}`;
 const signupChallengeKey = (email) => `webauthn:signup-challenge:${email}`;
+
+const LINK_TOKEN_TTL_SECONDS = 10 * 60;
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+const linkTokenKey = (hashedToken) => `webauthn:link-token:${hashedToken}`;
+const linkChallengeKey = (hashedToken) => `webauthn:link-challenge:${hashedToken}`;
 
 /*
   Token generation is intentionally re-implemented here (instead of importing
@@ -167,6 +173,180 @@ export const verifyRegistration = async (user, response, name) => {
     deviceType: passkey.deviceType,
     backedUp: passkey.backedUp,
     createdAt: passkey.createdAt,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Link (public — attach a passkey to an EXISTING account from a device
+// that has no active session there, e.g. registering your phone as a
+// second admin device without typing your password into it). Safe to
+// attach to an existing account, unlike public signup above, because the
+// one-time link is only ever delivered to the account's own inbox —
+// clicking it is proof of email ownership, the same trust signal a
+// password-reset link relies on.
+// ---------------------------------------------------------------------------
+
+export const requestPasskeyLink = async (email) => {
+  const user = await User.findOne({ email });
+
+  // Silent no-op for an unknown email — mirrors forgotPassword's
+  // anti-enumeration behavior. The controller always returns the same
+  // generic response either way.
+  if (!user) {
+    return;
+  }
+
+  const admin = isAdminEmail(user.email);
+
+  // If the site is locked down to admins only, don't bother handing out
+  // a link a non-admin could never actually log in with anyway.
+  if (!admin) {
+    const allowed = await isPublicAccessEnabled();
+
+    if (!allowed) {
+      return;
+    }
+  }
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const hashedToken = hashToken(token);
+
+  await redis.setEx(linkTokenKey(hashedToken), LINK_TOKEN_TTL_SECONDS, String(user._id));
+
+  const linkUrl = `${process.env.FRONTEND_URL}/link-passkey/${token}`;
+
+  await sendPasskeyLinkEmail(user.email, linkUrl);
+
+  logger.info({ action: "PASSKEY_LINK_REQUESTED", email: user.email, userId: user._id });
+};
+
+const resolveLinkUserId = async (token) => {
+  const hashedToken = hashToken(token);
+  const userId = await redis.get(linkTokenKey(hashedToken));
+
+  if (!userId) {
+    throw httpError("This link is invalid or has expired", 400);
+  }
+
+  return { userId, hashedToken };
+};
+
+export const getLinkOptions = async (token) => {
+  const { userId, hashedToken } = await resolveLinkUserId(token);
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw httpError("This link is invalid or has expired", 400);
+  }
+
+  const existingPasskeys = await Passkey.find({ user: user._id })
+    .select("credentialID transports")
+    .lean();
+
+  const options = await generateRegistrationOptions({
+    rpName: RP_NAME,
+    rpID: RP_ID,
+    userName: user.email,
+    userDisplayName: user.email,
+    userID: isoUint8Array.fromHex(user._id.toString()),
+    attestationType: "none",
+    excludeCredentials: existingPasskeys.map((cred) => ({
+      id: cred.credentialID,
+      transports: cred.transports,
+    })),
+    authenticatorSelection: {
+      residentKey: "preferred",
+      userVerification: "preferred",
+    },
+  });
+
+  await redis.setEx(linkChallengeKey(hashedToken), CHALLENGE_TTL_SECONDS, options.challenge);
+
+  return options;
+};
+
+export const verifyLink = async (token, response, name) => {
+  const { userId, hashedToken } = await resolveLinkUserId(token);
+
+  const user = await User.findById(userId);
+
+  if (!user) {
+    throw httpError("This link is invalid or has expired", 400);
+  }
+
+  let matchedChallenge = null;
+
+  const expectedChallenge = async (challenge) => {
+    const stored = await redis.get(linkChallengeKey(hashedToken));
+
+    if (stored && stored === challenge) {
+      matchedChallenge = challenge;
+      return true;
+    }
+
+    return false;
+  };
+
+  let verification;
+
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: ALLOWED_ORIGINS,
+      expectedRPID: RP_ID,
+    });
+  } catch (err) {
+    logger.warn({ action: "PASSKEY_LINK_FAILED", userId: user._id, reason: err.message });
+    throw httpError("Passkey registration verification failed", 400);
+  }
+
+  if (!verification.verified || !verification.registrationInfo) {
+    throw httpError("Passkey registration verification failed", 400);
+  }
+
+  // Single-use: burn both the challenge and the link token itself so this
+  // exact email link can't be replayed to add a second device.
+  await redis.del(linkChallengeKey(hashedToken));
+  await redis.del(linkTokenKey(hashedToken));
+
+  const { credential, credentialDeviceType, credentialBackedUp } =
+    verification.registrationInfo;
+
+  await Passkey.create({
+    user: user._id,
+    credentialID: credential.id,
+    publicKey: Buffer.from(credential.publicKey),
+    counter: credential.counter,
+    transports: credential.transports || [],
+    deviceType: credentialDeviceType,
+    backedUp: credentialBackedUp,
+    name: name || "Passkey",
+  });
+
+  // Proving control of both the inbox (the link) and a live authenticator
+  // is at least as strong as a password login, so this device is logged
+  // in immediately rather than sending the user back through /login.
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+
+  user.role = isAdminEmail(user.email) ? "admin" : user.role;
+  user.refreshToken = refreshToken;
+  user.lastLoginAt = new Date();
+
+  await user.save();
+
+  logger.info({ action: "PASSKEY_LINKED", email: user.email, method: "passkey", userId: user._id });
+
+  return {
+    user: {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    },
+    accessToken,
+    refreshToken,
   };
 };
 

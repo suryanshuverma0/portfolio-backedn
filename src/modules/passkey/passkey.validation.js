@@ -40,6 +40,25 @@ export const signupVerifySchema = z.object({
   name: z.string().trim().min(1).max(100).optional(),
 });
 
+// Add-this-device-to-my-existing-account flow, via an emailed one-time
+// link — see verifyLink in passkey.service.js for why this can safely
+// attach to an existing account (unlike public signup).
+export const linkRequestSchema = z.object({
+  email: emailSchema,
+});
+
+const tokenSchema = z.string({ required_error: "Token is required" }).min(1);
+
+export const linkOptionsSchema = z.object({
+  token: tokenSchema,
+});
+
+export const linkVerifySchema = z.object({
+  token: tokenSchema,
+  response: credentialResponseSchema,
+  name: z.string().trim().min(1).max(100).optional(),
+});
+
 export const renamePasskeySchema = z.object({
   name: z
     .string({ required_error: "Name is required" })

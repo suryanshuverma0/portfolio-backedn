@@ -68,6 +68,47 @@ export const sendPasswordResetEmail = async (toEmail, resetUrl) => {
   });
 };
 
+export const sendPasskeyLinkEmail = async (toEmail, linkUrl) => {
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn(
+      `RESEND_API_KEY not set — passkey link for ${toEmail}: ${linkUrl}`,
+    );
+    return;
+  }
+
+  const client = getResendClient();
+
+  const fromAddress =
+    process.env.RESEND_FROM_EMAIL || "Portfolio <onboarding@resend.dev>";
+
+  await client.emails.send({
+    from: fromAddress,
+    to: toEmail,
+    subject: "Add this device as a passkey",
+    html: `
+      <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2 style="margin-bottom: 8px;">Add this device as a passkey</h2>
+        <p style="color: #444; line-height: 1.5;">
+          Open this link on the device you want to sign in with next time —
+          it'll let you register it as a passkey for this account. This
+          link expires in 10 minutes and can only be used once.
+        </p>
+        <p style="margin: 24px 0;">
+          <a
+            href="${linkUrl}"
+            style="background:#111;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;"
+          >
+            Add this device
+          </a>
+        </p>
+        <p style="color: #888; font-size: 13px; line-height: 1.5;">
+          If you didn't request this, you can safely ignore this email.
+        </p>
+      </div>
+    `,
+  });
+};
+
 export const sendContactAcknowledgmentEmail = async (toEmail, name) => {
   if (!process.env.RESEND_API_KEY) {
     logger.warn(

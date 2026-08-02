@@ -6,6 +6,9 @@ import { slidingWindowLimiter } from "../../middleware/rateLimiter.middleware.js
 
 import {
   registrationVerifySchema,
+  linkRequestSchema,
+  linkOptionsSchema,
+  linkVerifySchema,
   signupOptionsSchema,
   signupVerifySchema,
   authenticationVerifySchema,
@@ -14,6 +17,9 @@ import {
 import {
   registrationOptionsController,
   registrationVerifyController,
+  linkRequestController,
+  linkOptionsController,
+  linkVerifyController,
   signupOptionsController,
   signupVerifyController,
   authenticationOptionsController,
@@ -61,6 +67,23 @@ const passkeySignupByEmailLimiter = slidingWindowLimiter({
   keyBy: emailKeyBy,
 });
 
+// Requesting a link is email-bombing-prone the same way forgot-password
+// is, so it gets its own tight per-email limit. The options/verify steps
+// only work with a valid single-use token already, so a looser shared
+// limiter is enough there.
+const passkeyLinkRequestLimiter = slidingWindowLimiter({
+  prefix: "passkey-link-request",
+  limit: 3,
+  windowInSeconds: 3600,
+  keyBy: emailKeyBy,
+});
+
+const passkeyLinkLimiter = slidingWindowLimiter({
+  prefix: "passkey-link",
+  limit: 20,
+  windowInSeconds: 900,
+});
+
 // --- Registration (adding a passkey to the logged-in account) ---
 router.post("/registration/options", protect, registrationOptionsController);
 router.post(
@@ -68,6 +91,27 @@ router.post(
   protect,
   validate(registrationVerifySchema),
   registrationVerifyController,
+);
+
+// --- Link (public — emails a one-time link that adds a passkey to an
+// EXISTING account from a device with no session there) ---
+router.post(
+  "/link/request",
+  passkeyLinkRequestLimiter,
+  validate(linkRequestSchema),
+  linkRequestController,
+);
+router.post(
+  "/link/options",
+  passkeyLinkLimiter,
+  validate(linkOptionsSchema),
+  linkOptionsController,
+);
+router.post(
+  "/link/verify",
+  passkeyLinkLimiter,
+  validate(linkVerifySchema),
+  linkVerifyController,
 );
 
 // --- Signup (public — creates a new account bound to a first passkey;
