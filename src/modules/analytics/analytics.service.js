@@ -4,6 +4,9 @@ import Skill from "../skills/skills.model.js";
 import Certificate from "../certificates/certificate.model.js";
 import Experience from "../experience/experience.model.js";
 import Service from "../services/service.model.js";
+import Post from "../blog/blog.model.js";
+import Comment from "../blog/comment.model.js";
+import Message from "../contact/contact.model.js";
 import { getOrSetCache } from "../../utils/cache.js";
 import logger from "../../utils/logger.js";
 
@@ -292,16 +295,29 @@ export const getDashboardSummary = async () => {
     getOrSetCache("analytics:dashboard", 300, async () => {
       const todayStart = startOfDay(new Date());
 
-      const [projects, skills, certificates, experience, services, viewsToday, overview] =
-        await Promise.all([
-          Project.countDocuments({}),
-          Skill.countDocuments({}),
-          Certificate.countDocuments({}),
-          Experience.countDocuments({}),
-          Service.countDocuments({}),
-          PageView.countDocuments({ createdAt: { $gte: todayStart } }),
-          getCachedOverview(30),
-        ]);
+      const [
+        projects,
+        skills,
+        certificates,
+        experience,
+        services,
+        posts,
+        unreadMessages,
+        pendingComments,
+        viewsToday,
+        overview,
+      ] = await Promise.all([
+        Project.countDocuments({}),
+        Skill.countDocuments({}),
+        Certificate.countDocuments({}),
+        Experience.countDocuments({}),
+        Service.countDocuments({}),
+        Post.countDocuments({}),
+        Message.countDocuments({ isRead: false }),
+        Comment.countDocuments({ isApproved: false }),
+        PageView.countDocuments({ createdAt: { $gte: todayStart } }),
+        getCachedOverview(30),
+      ]);
 
       return {
         projects,
@@ -309,10 +325,14 @@ export const getDashboardSummary = async () => {
         certificates,
         experience,
         services,
+        posts,
+        unreadMessages,
+        pendingComments,
         viewsToday,
         totalViews: overview.totalViews,
         uniqueVisitors: overview.uniqueVisitors,
         trend: overview.trend,
+        viewsByDay: overview.viewsByDay,
       };
     }),
 
@@ -327,4 +347,104 @@ export const getDashboardSummary = async () => {
     ...summary,
     activeNow: activeVisitorIds.length,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Recent Activity — a merged, most-recent-first feed built from each
+// content module's own `createdAt` rather than a dedicated audit-log
+// collection. Cheap (one small indexed query per module) and always
+// consistent with the real data, at the cost of only covering
+// create-time events, not every edit.
+// ---------------------------------------------------------------------------
+
+const ACTIVITY_SOURCE_LIMIT = 8;
+
+export const getRecentActivity = async (limit = 12) => {
+  return getOrSetCache(`analytics:recent-activity:${limit}`, 120, async () => {
+    const [projects, certificates, posts, comments, messages] = await Promise.all([
+      Project.find({})
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_SOURCE_LIMIT)
+        .select("title createdAt")
+        .lean(),
+
+      Certificate.find({})
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_SOURCE_LIMIT)
+        .select("title createdAt")
+        .lean(),
+
+      Post.find({})
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_SOURCE_LIMIT)
+        .select("title isVisible createdAt")
+        .lean(),
+
+      Comment.find({})
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_SOURCE_LIMIT)
+        .select("name content isApproved createdAt post")
+        .populate("post", "title")
+        .lean(),
+
+      Message.find({})
+        .sort({ createdAt: -1 })
+        .limit(ACTIVITY_SOURCE_LIMIT)
+        .select("name subject isRead createdAt")
+        .lean(),
+    ]);
+
+    const items = [
+      ...projects.map((p) => ({
+        type: "project",
+        id: String(p._id),
+        title: p.title,
+        detail: "New project published",
+        createdAt: p.createdAt,
+        link: "/dashboard/projects",
+      })),
+
+      ...certificates.map((c) => ({
+        type: "certificate",
+        id: String(c._id),
+        title: c.title,
+        detail: "New certificate added",
+        createdAt: c.createdAt,
+        link: "/dashboard/certificates",
+      })),
+
+      ...posts.map((p) => ({
+        type: "blog",
+        id: String(p._id),
+        title: p.title,
+        detail: p.isVisible ? "Post published" : "Draft saved",
+        createdAt: p.createdAt,
+        link: "/dashboard/blog",
+      })),
+
+      ...comments.map((c) => ({
+        type: "comment",
+        id: String(c._id),
+        title: c.post?.title || "a post",
+        detail: c.isApproved
+          ? `${c.name} commented`
+          : `${c.name} awaiting approval`,
+        createdAt: c.createdAt,
+        link: "/dashboard/blog/comments",
+      })),
+
+      ...messages.map((m) => ({
+        type: "message",
+        id: String(m._id),
+        title: m.subject || `Message from ${m.name}`,
+        detail: m.isRead ? "Message received" : "New unread message",
+        createdAt: m.createdAt,
+        link: "/dashboard/messages",
+      })),
+    ];
+
+    return items
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, limit);
+  });
 };

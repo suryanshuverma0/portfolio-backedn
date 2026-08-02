@@ -2,6 +2,7 @@ import {
   trackPageView,
   getOverview,
   getDashboardSummary,
+  getRecentActivity,
 } from "./analytics.service.js";
 import { getRequestMeta } from "./analytics.utils.js";
 
@@ -43,6 +44,21 @@ export const getDashboardSummaryController = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: summary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getRecentActivityController = async (req, res, next) => {
+  try {
+    const limit = Math.min(30, Math.max(1, Number(req.query.limit) || 12));
+
+    const activity = await getRecentActivity(limit);
+
+    res.status(200).json({
+      success: true,
+      data: activity,
     });
   } catch (error) {
     next(error);

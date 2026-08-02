@@ -8,6 +8,7 @@ import {
   trackController,
   getOverviewController,
   getDashboardSummaryController,
+  getRecentActivityController,
 } from "./analytics.controller.js";
 
 import { trackSchema } from "./analytics.validation.js";
@@ -19,5 +20,7 @@ router.post("/track", trackLimiter, validate(trackSchema), trackController);
 router.get("/overview", protectAdmin, getOverviewController);
 
 router.get("/dashboard", protectAdmin, getDashboardSummaryController);
+
+router.get("/recent-activity", protectAdmin, getRecentActivityController);
 
 export default router;
