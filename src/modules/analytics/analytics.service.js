@@ -292,7 +292,11 @@ export const getOverview = async (rangeDays) => {
 
 export const getDashboardSummary = async () => {
   const [summary, activeVisitorIds] = await Promise.all([
-    getOrSetCache("analytics:dashboard", 300, async () => {
+    // v2: bumped the cache key so this can never return a stale pre-v2
+    // cached blob (missing posts/unreadMessages/pendingComments/viewsByDay)
+    // left over from before those fields existed — same key + old shape
+    // would otherwise silently serve zeros for up to 5 minutes post-deploy.
+    getOrSetCache("analytics:dashboard:v2", 300, async () => {
       const todayStart = startOfDay(new Date());
 
       const [
