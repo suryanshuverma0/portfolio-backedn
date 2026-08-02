@@ -6,7 +6,9 @@ import cookieParser from "cookie-parser";
 // import mongoSanitize from "express-mongo-sanitize";
 import hpp from "hpp";
 import pinoHttp from "pino-http";
+import swaggerUi from "swagger-ui-express";
 import logger from "./utils/logger.js";
+import openapiSpec from "./docs/openapi.js";
 
 import { notFound, errorHandler } from "./middleware/error.middleware.js";
 
@@ -53,6 +55,19 @@ app.use(cookieParser());
 // app.use(mongoSanitize());
 app.use(hpp());
 app.use(pinoHttp({ logger }));
+
+// Raw spec first (tooling/import into Postman etc.), then the interactive
+// UI. Helmet's default CSP (script-src 'self', no 'unsafe-inline') blocks
+// swagger-ui-express's own inline bootstrap script, so it's relaxed only
+// for this one path — every other route keeps the strict default.
+app.get("/api-docs.json", (req, res) => {
+  res.status(200).json(openapiSpec);
+});
+app.use("/api-docs", (req, res, next) => {
+  res.removeHeader("Content-Security-Policy");
+  next();
+});
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 app.get("/", (req, res) => {
   res.status(200).json({ success: true, message: "Portfolio API running" });
