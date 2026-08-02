@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const socialsSchema = z.object({
   github: z.string().url().or(z.literal("")).optional(),
+  leetcode: z.string().url().or(z.literal("")).optional(),
   linkedin: z.string().url().or(z.literal("")).optional(),
   twitter: z.string().url().or(z.literal("")).optional(),
   instagram: z.string().url().or(z.literal("")).optional(),

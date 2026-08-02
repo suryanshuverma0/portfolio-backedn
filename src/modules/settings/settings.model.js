@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 const socialsSchema = new mongoose.Schema(
   {
     github: { type: String, trim: true, default: "" },
+    leetcode: { type: String, trim: true, default: "" },
     linkedin: { type: String, trim: true, default: "" },
     twitter: { type: String, trim: true, default: "" },
     instagram: { type: String, trim: true, default: "" },
