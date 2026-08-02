@@ -25,6 +25,7 @@ import settingsRoutes from "./modules/settings/settings.routes.js";
 import googleAuthRoutes from "./modules/google-auth/googleAuth.routes.js";
 import blogRoutes from "./modules/blog/blog.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
+import passkeyRoutes from "./modules/passkey/passkey.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -79,6 +80,7 @@ app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/google-auth", googleAuthRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/contact", contactRoutes);
+app.use("/api/v1/passkey", passkeyRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

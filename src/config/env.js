@@ -8,7 +8,8 @@ const requiredEnvVars = [
   "CLOUDINARY_API_SECRET",
   "REDIS_URL",
   "GOOGLE_CLIENT_ID",
-  "ADMIN_EMAILS"
+  "ADMIN_EMAILS",
+  "WEBAUTHN_RP_ID"
 ];
 
 const validateEnv = () => {
