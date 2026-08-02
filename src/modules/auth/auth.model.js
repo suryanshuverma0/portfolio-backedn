@@ -41,6 +41,13 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Set on accounts created via passkey signup, which — like Google
+    // accounts — never have a password.
+    isPasskeyUser: {
+      type: Boolean,
+      default: false,
+    },
+
     is2FAEnabled: {
       type: Boolean,
       default: false,
@@ -79,9 +86,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Require password only for non-Google users
+// Require password only for non-Google, non-passkey users
 userSchema.pre("validate", function () {
-  if (!this.isGoogleUser && !this.password) {
+  if (!this.isGoogleUser && !this.isPasskeyUser && !this.password) {
     this.invalidate("password", "Password is required");
   }
 

@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import {
   generateRegistrationOptions,
@@ -31,6 +32,7 @@ const RP_NAME = process.env.WEBAUTHN_RP_NAME || "Portfolio CMS";
 const CHALLENGE_TTL_SECONDS = 5 * 60;
 const registrationChallengeKey = (userId) => `webauthn:reg-challenge:${userId}`;
 const authChallengeKey = (challenge) => `webauthn:auth-challenge:${challenge}`;
+const signupChallengeKey = (email) => `webauthn:signup-challenge:${email}`;
 
 /*
   Token generation is intentionally re-implemented here (instead of importing
@@ -165,6 +167,138 @@ export const verifyRegistration = async (user, response, name) => {
     deviceType: passkey.deviceType,
     backedUp: passkey.backedUp,
     createdAt: passkey.createdAt,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Signup (public — creates a brand-new account bound to a first passkey,
+// the passkey equivalent of registerUser/googleLogin's account-creation
+// path). Deliberately refuses to touch an email that already has an
+// account: unlike Google, a typed email string proves nothing about who
+// owns it, so this can never be used to attach a passkey to somebody
+// else's existing account. Adding a passkey to an account you already
+// control happens through the protect-gated registration flow above
+// (Security Settings), which requires an authenticated session instead.
+// ---------------------------------------------------------------------------
+
+export const getSignupOptions = async (email) => {
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    throw httpError(
+      "An account with this email already exists. Log in and add a passkey from Security Settings instead.",
+      409,
+    );
+  }
+
+  const admin = isAdminEmail(email);
+
+  await assertAccessAllowed(admin, email);
+
+  const options = await generateRegistrationOptions({
+    rpName: RP_NAME,
+    rpID: RP_ID,
+    userName: email,
+    userDisplayName: email,
+    // No Mongo user exists yet, so this is just an opaque per-ceremony
+    // handle — unrelated to the eventual account's _id.
+    userID: new Uint8Array(crypto.randomBytes(32)),
+    attestationType: "none",
+    authenticatorSelection: {
+      residentKey: "preferred",
+      userVerification: "preferred",
+    },
+  });
+
+  await redis.setEx(signupChallengeKey(email), CHALLENGE_TTL_SECONDS, options.challenge);
+
+  return options;
+};
+
+export const verifySignup = async (email, response, name) => {
+  let matchedChallenge = null;
+
+  const expectedChallenge = async (challenge) => {
+    const stored = await redis.get(signupChallengeKey(email));
+
+    if (stored && stored === challenge) {
+      matchedChallenge = challenge;
+      return true;
+    }
+
+    return false;
+  };
+
+  let verification;
+
+  try {
+    verification = await verifyRegistrationResponse({
+      response,
+      expectedChallenge,
+      expectedOrigin: ALLOWED_ORIGINS,
+      expectedRPID: RP_ID,
+    });
+  } catch (err) {
+    logger.warn({ action: "REGISTER_FAILED", email, method: "passkey", reason: err.message });
+    throw httpError("Passkey registration verification failed", 400);
+  }
+
+  if (!verification.verified || !verification.registrationInfo) {
+    throw httpError("Passkey registration verification failed", 400);
+  }
+
+  await redis.del(signupChallengeKey(email));
+
+  // Re-checked at verify time too — closes the race where two signups for
+  // the same email are in flight at once.
+  const existingUser = await User.findOne({ email });
+
+  if (existingUser) {
+    throw httpError("An account with this email already exists.", 409);
+  }
+
+  const admin = isAdminEmail(email);
+
+  await assertAccessAllowed(admin, email);
+
+  const { credential, credentialDeviceType, credentialBackedUp } =
+    verification.registrationInfo;
+
+  const user = await User.create({
+    email,
+    isPasskeyUser: true,
+    role: admin ? "admin" : "user",
+  });
+
+  await Passkey.create({
+    user: user._id,
+    credentialID: credential.id,
+    publicKey: Buffer.from(credential.publicKey),
+    counter: credential.counter,
+    transports: credential.transports || [],
+    deviceType: credentialDeviceType,
+    backedUp: credentialBackedUp,
+    name: name || "Passkey",
+  });
+
+  const accessToken = generateAccessToken(user._id);
+  const refreshToken = generateRefreshToken(user._id);
+
+  user.refreshToken = refreshToken;
+  user.lastLoginAt = new Date();
+
+  await user.save();
+
+  logger.info({ action: "REGISTER_SUCCESS", email, method: "passkey", userId: user._id, role: user.role });
+
+  return {
+    user: {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+    },
+    accessToken,
+    refreshToken,
   };
 };
 

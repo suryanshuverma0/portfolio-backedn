@@ -1,6 +1,8 @@
 import {
   getRegistrationOptions,
   verifyRegistration,
+  getSignupOptions,
+  verifySignup,
   getAuthenticationOptions,
   verifyAuthentication,
   listPasskeys,
@@ -47,6 +49,38 @@ export const registrationVerifyController = async (req, res, next) => {
       message: "Passkey registered",
       data: passkey,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const signupOptionsController = async (req, res, next) => {
+  try {
+    const { email } = req.validatedData;
+
+    const options = await getSignupOptions(email);
+
+    res.status(200).json({ success: true, data: options });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const signupVerifyController = async (req, res, next) => {
+  try {
+    const { email, response, name } = req.validatedData;
+
+    const { user, accessToken, refreshToken } = await verifySignup(email, response, name);
+
+    res
+      .status(201)
+      .cookie("accessToken", accessToken, accessCookieOptions)
+      .cookie("refreshToken", refreshToken, refreshCookieOptions)
+      .json({
+        success: true,
+        message: "Account created",
+        data: user,
+      });
   } catch (error) {
     next(error);
   }

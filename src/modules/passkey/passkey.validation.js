@@ -1,5 +1,9 @@
 import { z } from "zod";
 
+// Duplicated from ../auth/auth.validation.js rather than imported, so this
+// module stays self-contained (same rationale as ../google-auth).
+const emailSchema = z.string().trim().email("Invalid email address").toLowerCase();
+
 // Structural check only — the exact shape of `response` is dictated by the
 // WebAuthn spec / @simplewebauthn/browser, and the real cryptographic
 // validation happens server-side in verifyRegistrationResponse /
@@ -21,6 +25,19 @@ export const registrationVerifySchema = z.object({
 
 export const authenticationVerifySchema = z.object({
   response: credentialResponseSchema,
+});
+
+// Public passkey signup — creates a brand-new account, so (unlike login)
+// it needs an email up front to run the same admin/public-access gate
+// password and Google signup already go through.
+export const signupOptionsSchema = z.object({
+  email: emailSchema,
+});
+
+export const signupVerifySchema = z.object({
+  email: emailSchema,
+  response: credentialResponseSchema,
+  name: z.string().trim().min(1).max(100).optional(),
 });
 
 export const renamePasskeySchema = z.object({

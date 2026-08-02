@@ -6,12 +6,16 @@ import { slidingWindowLimiter } from "../../middleware/rateLimiter.middleware.js
 
 import {
   registrationVerifySchema,
+  signupOptionsSchema,
+  signupVerifySchema,
   authenticationVerifySchema,
   renamePasskeySchema,
 } from "./passkey.validation.js";
 import {
   registrationOptionsController,
   registrationVerifyController,
+  signupOptionsController,
+  signupVerifyController,
   authenticationOptionsController,
   authenticationVerifyController,
   listPasskeysController,
@@ -34,6 +38,29 @@ const passkeyAuthLimiter = slidingWindowLimiter({
   windowInSeconds: 900,
 });
 
+// Duplicated from ../../middleware/limiters.js's private emailKeyBy (not
+// exported) rather than imported, for the same self-containment reason.
+const emailKeyBy = (req) => {
+  const email = req.body?.email;
+
+  return typeof email === "string" && email.trim()
+    ? email.trim().toLowerCase()
+    : null;
+};
+
+const passkeySignupLimiter = slidingWindowLimiter({
+  prefix: "passkey-signup",
+  limit: 10,
+  windowInSeconds: 3600,
+});
+
+const passkeySignupByEmailLimiter = slidingWindowLimiter({
+  prefix: "passkey-signup-email",
+  limit: 5,
+  windowInSeconds: 3600,
+  keyBy: emailKeyBy,
+});
+
 // --- Registration (adding a passkey to the logged-in account) ---
 router.post("/registration/options", protect, registrationOptionsController);
 router.post(
@@ -41,6 +68,24 @@ router.post(
   protect,
   validate(registrationVerifySchema),
   registrationVerifyController,
+);
+
+// --- Signup (public — creates a new account bound to a first passkey;
+// same admin allowlist / publicAccessEnabled gate as password & Google
+// signup, enforced inside getSignupOptions/verifySignup) ---
+router.post(
+  "/signup/options",
+  passkeySignupLimiter,
+  passkeySignupByEmailLimiter,
+  validate(signupOptionsSchema),
+  signupOptionsController,
+);
+router.post(
+  "/signup/verify",
+  passkeySignupLimiter,
+  passkeySignupByEmailLimiter,
+  validate(signupVerifySchema),
+  signupVerifyController,
 );
 
 // --- Authentication (logging in with a passkey) ---
