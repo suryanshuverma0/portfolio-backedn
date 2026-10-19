@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LINK_KINDS, SECTION_KEYS } from "./card.model.js";
+import { LINK_KINDS, SECTION_KEYS, CARD_FINISHES } from "./card.model.js";
 
 const optionalText = (max) => z.string().trim().max(max).optional();
 
@@ -69,6 +69,7 @@ export const updateCardSchema = z.object({
     .trim()
     .regex(/^#[0-9a-f]{6}$/i, "Use a hex colour like #2a78d6")
     .optional(),
+  finish: z.enum(CARD_FINISHES).optional(),
   sections: z
     .object(Object.fromEntries(SECTION_KEYS.map((key) => [key, z.boolean().optional()])))
     .strict()

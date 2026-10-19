@@ -94,6 +94,7 @@ const buildDefaults = async () => {
     skills: [],
     featuredProjects: featured.map((p) => String(p._id)),
     accentColor: "#2a78d6",
+    finish: "midnight",
     sections: ALL_SECTIONS_ON,
   };
 };
@@ -129,6 +130,7 @@ const resolveCard = async () => {
     skills: saved.skills ?? defaults.skills,
     featuredProjects: (saved.featuredProjects?.length ? saved.featuredProjects : defaults.featuredProjects).map(String),
     accentColor: saved.accentColor || defaults.accentColor,
+    finish: saved.finish || defaults.finish,
     sections: { ...ALL_SECTIONS_ON, ...(saved.sections || {}) },
   };
 };
@@ -213,6 +215,7 @@ export const getPublicCard = async () =>
           technologies: (p.technologies || []).slice(0, 4),
         })),
       accentColor: card.accentColor,
+      finish: card.finish,
       sections: {
         saveContact: show.saveContact,
         portfolioButton: show.portfolioButton,

@@ -8,6 +8,8 @@ import imageSchema from "../../shared/schemas/image.schema.js";
 // the card works before it has ever been saved.
 // ---------------------------------------------------------------------------
 
+export const CARD_FINISHES = ["midnight", "black", "accent"];
+
 export const SECTION_KEYS = [
   "photo",
   "availability",
@@ -88,6 +90,8 @@ const cardSchema = new mongoose.Schema(
 
     // --- appearance ---
     accentColor: { type: String, trim: true, maxlength: 9, default: "#2a78d6" },
+    // Card surface: midnight (dark navy + accent glow), black (metal), accent.
+    finish: { type: String, enum: CARD_FINISHES, default: "midnight" },
 
     // --- what to show (hidden parts are stripped server-side, so hidden
     // contact details never reach the page or the vCard) ---
