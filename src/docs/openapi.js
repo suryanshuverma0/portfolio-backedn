@@ -1069,6 +1069,68 @@ const paths = {
       responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
     },
   },
+  "/api/v1/analytics/insights": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Deeper analytics: daily trends, new vs returning, hourly traffic, journey stages, conversions, top projects/posts, outbound sites, device engagement (admin)",
+      security: [cookieAuth],
+      parameters: [
+        { name: "range", in: "query", schema: { type: "integer", default: 30, minimum: 1, maximum: 365 }, description: "Days" },
+        { name: "tz", in: "query", schema: { type: "string", default: "UTC" }, description: "IANA timezone for day/hour buckets" },
+      ],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/card": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Public NFC business card (resolved with Profile/Settings fallbacks)",
+      responses: { 200: { description: "OK" }, 404: { description: "Card disabled" } },
+    },
+  },
+  "/api/v1/card/vcard": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Download the card as a vCard 3.0 contact (with embedded photo)",
+      responses: { 200: { description: "text/vcard" }, 404: { description: "Card disabled" } },
+    },
+  },
+  "/api/v1/card/admin": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Card editor data (admin)",
+      security: [cookieAuth],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+    put: {
+      tags: ["Analytics"],
+      summary: "Update the card (admin)",
+      security: [cookieAuth],
+      responses: { 200: { description: "Updated" }, 400: responses.Validation, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/card/analytics": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Card analytics: opens by source (nfc/qr/link), saves, contact taps, portfolio visits, locations, recent opens (admin)",
+      security: [cookieAuth],
+      parameters: [
+        { name: "range", in: "query", schema: { type: "integer", default: 30, maximum: 365 }, description: "Days" },
+        { name: "tz", in: "query", schema: { type: "string", default: "UTC" } },
+      ],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/storage": {
+    get: {
+      tags: ["Analytics"],
+      summary: "MongoDB storage usage: quota, per-category and per-collection sizes, indexes, growth (admin)",
+      description: "Cached for 60s. Quota defaults to 512 MB (Atlas M0); override with MONGO_STORAGE_LIMIT_MB.",
+      security: [cookieAuth],
+      parameters: [{ name: "refresh", in: "query", schema: { type: "boolean", default: false }, description: "Bypass the cache" }],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
   "/api/v1/analytics/sessions/live": {
     get: {
       tags: ["Analytics"],

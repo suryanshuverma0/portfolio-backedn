@@ -10,6 +10,14 @@ const MAX_EVENTS_PER_SESSION_DETAIL = 2000;
 
 const INTERACTION_TYPES = ["click", "outbound_click", "download", "contact_link", "form_submit"];
 
+// /card (the NFC business card) has its own analytics page, so portfolio
+// analytics leave it out: card events are filtered by path, and sessions
+// that only ever opened the card have portfolioPageViews 0. Sessions from
+// before the field existed have no value and are kept.
+export const CARD_PATH = /^\/card(\/|$)/;
+export const NOT_CARD_PATH = { $not: CARD_PATH };
+export const PORTFOLIO_SESSION = { portfolioPageViews: { $ne: 0 } };
+
 const durationExpr = { $subtract: ["$lastSeenAt", "$startedAt"] };
 
 // A bounce = landed on one page and left within 10 seconds.
@@ -97,6 +105,7 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
 
   const persisted = timed.filter((event) => event.type !== "heartbeat");
   const pageViews = persisted.filter((event) => event.type === "page_view");
+  const portfolioPageViews = pageViews.filter((event) => !CARD_PATH.test(event.path || ""));
   const withPath = timed.filter((event) => event.path);
 
   const activeTimeMs = timed
@@ -121,6 +130,8 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
     $max: { lastSeenAt: timed[timed.length - 1].at, maxScrollDepth },
     $inc: {
       pageViews: pageViews.length,
+      portfolioPageViews: portfolioPageViews.length,
+      cardViews: pageViews.length - portfolioPageViews.length,
       eventCount: persisted.length,
       activeTimeMs: Math.round(activeTimeMs),
     },
@@ -163,9 +174,9 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
 
   // Keep the legacy PageView collection fed so the existing Analytics
   // overview and dashboard numbers stay accurate.
-  if (pageViews.length && !network.isBot) {
+  if (portfolioPageViews.length && !network.isBot) {
     await PageView.insertMany(
-      pageViews.map((event) => ({
+      portfolioPageViews.map((event) => ({
         path: event.path,
         referrer: context.referrer,
         visitorId,
@@ -201,6 +212,7 @@ export const listSessions = async ({
   };
 
   if (!includeBots) filter.isBot = { $ne: true };
+  Object.assign(filter, PORTFOLIO_SESSION);
   if (device) filter.device = device;
   if (country) filter["location.country"] = country.toUpperCase();
 
@@ -304,6 +316,7 @@ export const getLiveSessions = async () => {
   const sessions = await VisitorSession.find({
     lastSeenAt: { $gte: new Date(Date.now() - LIVE_WINDOW_MS) },
     isBot: { $ne: true },
+    ...PORTFOLIO_SESSION,
   })
     .sort({ lastSeenAt: -1 })
     .limit(50)
@@ -346,7 +359,7 @@ const DURATION_BUCKETS = [
 export const getJourneyInsights = async (rangeDays, timezone) => {
   return getOrSetCache(`analytics:journey:${rangeDays}:${timezone}`, 120, async () => {
     const since = new Date(Date.now() - rangeDays * DAY_MS);
-    const sessionMatch = { startedAt: { $gte: since }, isBot: { $ne: true } };
+    const sessionMatch = { startedAt: { $gte: since }, isBot: { $ne: true }, ...PORTFOLIO_SESSION };
 
     const [
       totalsRows,
@@ -388,7 +401,7 @@ export const getJourneyInsights = async (rangeDays, timezone) => {
       ]),
 
       VisitorEvent.aggregate([
-        { $match: { type: "section_view", at: { $gte: since } } },
+        { $match: { type: "section_view", at: { $gte: since }, path: NOT_CARD_PATH } },
         {
           $group: {
             _id: "$section",
@@ -409,7 +422,7 @@ export const getJourneyInsights = async (rangeDays, timezone) => {
       ]),
 
       VisitorEvent.aggregate([
-        { $match: { type: { $in: INTERACTION_TYPES }, at: { $gte: since } } },
+        { $match: { type: { $in: INTERACTION_TYPES }, at: { $gte: since }, path: NOT_CARD_PATH } },
         {
           $group: {
             _id: { type: "$type", label: "$label", target: "$target" },

@@ -8,6 +8,7 @@ import {
   isValidTimezone,
 } from "./journey.service.js";
 import { getVisitorNetworkMeta } from "./analytics.utils.js";
+import { getAdvancedInsights } from "./insights.service.js";
 
 const DEVICES = ["desktop", "mobile", "tablet"];
 
@@ -98,6 +99,19 @@ export const deleteSessionController = async (req, res, next) => {
 export const getLiveSessionsController = async (req, res, next) => {
   try {
     const data = await getLiveSessions();
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAdvancedInsightsController = async (req, res, next) => {
+  try {
+    const timezone =
+      typeof req.query.tz === "string" && isValidTimezone(req.query.tz) ? req.query.tz : "UTC";
+
+    const data = await getAdvancedInsights(clampInt(req.query.range, 1, 365, 30), timezone);
 
     res.status(200).json({ success: true, data });
   } catch (error) {

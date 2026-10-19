@@ -29,6 +29,8 @@ import blogRoutes from "./modules/blog/blog.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
 import passkeyRoutes from "./modules/passkey/passkey.routes.js";
 import integrationsRoutes from "./modules/integrations/integrations.routes.js";
+import storageRoutes from "./modules/storage/storage.routes.js";
+import cardRoutes from "./modules/card/card.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -105,6 +107,8 @@ app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/contact", contactRoutes);
 app.use("/api/v1/passkey", passkeyRoutes);
 app.use("/api/v1/integrations", integrationsRoutes);
+app.use("/api/v1/storage", storageRoutes);
+app.use("/api/v1/card", cardRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

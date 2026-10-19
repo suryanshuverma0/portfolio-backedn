@@ -78,6 +78,9 @@ const visitorSessionSchema = new mongoose.Schema(
     exitPage: { type: String, maxlength: 300 },
     exitAt: { type: Date },
     pageViews: { type: Number, default: 0 },
+    // Split of pageViews: /card (NFC business card) vs the rest of the site.
+    portfolioPageViews: { type: Number },
+    cardViews: { type: Number, default: 0 },
     eventCount: { type: Number, default: 0 },
     activeTimeMs: { type: Number, default: 0 },
     maxScrollDepth: { type: Number, default: 0 },

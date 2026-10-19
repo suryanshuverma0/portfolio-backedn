@@ -19,6 +19,7 @@ import {
   deleteSessionController,
   getLiveSessionsController,
   getJourneyInsightsController,
+  getAdvancedInsightsController,
 } from "./journey.controller.js";
 
 import { trackSchema } from "./analytics.validation.js";
@@ -45,6 +46,8 @@ router.get("/dashboard", protectAdmin, getDashboardSummaryController);
 router.get("/recent-activity", protectAdmin, getRecentActivityController);
 
 router.get("/journey", protectAdmin, getJourneyInsightsController);
+
+router.get("/insights", protectAdmin, getAdvancedInsightsController);
 
 router.get("/sessions/live", protectAdmin, getLiveSessionsController);
 
