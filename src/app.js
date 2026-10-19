@@ -49,6 +49,13 @@ app.use(compression());
 // global parser so it wins for blog requests (body-parser skips re-parsing
 // an already-consumed request).
 app.use("/api/v1/blog", express.json({ limit: "2mb" }));
+// Journey tracker batches can exceed 10kb, and arrive as text/plain when sent
+// via navigator.sendBeacon (parsed into JSON in the analytics routes).
+app.use(
+  "/api/v1/analytics/collect",
+  express.json({ limit: "64kb" }),
+  express.text({ type: "text/plain", limit: "64kb" }),
+);
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());

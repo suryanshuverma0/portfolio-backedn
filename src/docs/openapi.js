@@ -961,8 +961,8 @@ const paths = {
   "/api/v1/analytics/track": {
     post: {
       tags: ["Analytics"],
-      summary: "Record a page view",
-      description: "Public, rate limited. Called by the frontend on every route change.",
+      summary: "Record a page view (legacy)",
+      description: "Public, rate limited. Superseded by /analytics/collect; kept for older cached frontend bundles.",
       requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/TrackRequest" } } } },
       responses: { 201: { description: "Tracked" }, 400: responses.Validation, 429: responses.TooManyRequests },
     },
@@ -991,6 +991,106 @@ const paths = {
       security: [cookieAuth],
       parameters: [{ name: "limit", in: "query", schema: { type: "integer", default: 12, minimum: 1, maximum: 30 } }],
       responses: { 200: { description: "OK", content: { "application/json": { schema: okEnvelope({ type: "array", items: { $ref: "#/components/schemas/RecentActivityItem" } }) } } }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/analytics/collect": {
+    post: {
+      tags: ["Analytics"],
+      summary: "Record a batch of visitor journey events",
+      description:
+        "Public, rate limited (120/min/IP). Accepts application/json or text/plain (navigator.sendBeacon) bodies up to 64kb. " +
+        "IP, location and device are derived server-side. Event types: page_view, page_leave, section_view, scroll_depth, click, " +
+        "outbound_click, download, contact_link, form_submit, heartbeat (heartbeats only update the session and are not stored).",
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["sessionId", "visitorId", "sentAt", "events"],
+              properties: {
+                sessionId: { type: "string" },
+                visitorId: { type: "string" },
+                sentAt: { type: "integer", description: "Client epoch ms at send time (used to correct clock skew)" },
+                context: { type: "object", description: "screen, viewport, language, timezone, referrer, landingUrl, utm, …" },
+                events: {
+                  type: "array",
+                  maxItems: 50,
+                  items: {
+                    type: "object",
+                    required: ["type", "ts"],
+                    properties: {
+                      type: { type: "string" },
+                      path: { type: "string" },
+                      title: { type: "string" },
+                      label: { type: "string" },
+                      section: { type: "string" },
+                      target: { type: "string" },
+                      value: { type: "number" },
+                      meta: { type: "object" },
+                      ts: { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: { 204: { description: "Collected" }, 400: responses.Validation, 429: responses.TooManyRequests },
+    },
+  },
+  "/api/v1/analytics/journey": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Engagement insights: section reach, dwell time, interactions, visit heatmap (admin)",
+      security: [cookieAuth],
+      parameters: [
+        { name: "range", in: "query", schema: { type: "integer", default: 30, minimum: 1, maximum: 3650 }, description: "Days" },
+        { name: "tz", in: "query", schema: { type: "string", default: "UTC" }, description: "IANA timezone for the heatmap" },
+      ],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/analytics/sessions": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Paginated visitor sessions (admin)",
+      security: [cookieAuth],
+      parameters: [
+        { name: "page", in: "query", schema: { type: "integer", default: 1 } },
+        { name: "limit", in: "query", schema: { type: "integer", default: 25, maximum: 100 } },
+        { name: "range", in: "query", schema: { type: "integer", default: 30, maximum: 3650 }, description: "Days" },
+        { name: "search", in: "query", schema: { type: "string" }, description: "IP, city, region, referrer, UTM, visitor/session id" },
+        { name: "device", in: "query", schema: { type: "string", enum: ["desktop", "mobile", "tablet"] } },
+        { name: "country", in: "query", schema: { type: "string" }, description: "ISO-3166 alpha-2" },
+        { name: "bots", in: "query", schema: { type: "boolean", default: false } },
+      ],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/analytics/sessions/live": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Sessions active in the last 2 minutes, with their latest event (admin)",
+      security: [cookieAuth],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden },
+    },
+  },
+  "/api/v1/analytics/sessions/{sessionId}": {
+    get: {
+      tags: ["Analytics"],
+      summary: "Full session journey: session details, ordered events and the visitor's history (admin)",
+      security: [cookieAuth],
+      parameters: [{ name: "sessionId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { 200: { description: "OK" }, 401: responses.Unauthorized, 403: responses.Forbidden, 404: { description: "Not found" } },
+    },
+    delete: {
+      tags: ["Analytics"],
+      summary: "Delete a session and its events (admin)",
+      security: [cookieAuth],
+      parameters: [{ name: "sessionId", in: "path", required: true, schema: { type: "string" } }],
+      responses: { 200: { description: "Deleted" }, 401: responses.Unauthorized, 403: responses.Forbidden, 404: { description: "Not found" } },
     },
   },
 

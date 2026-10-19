@@ -71,3 +71,13 @@ export const trackLimiter =
     limit: 60,
     windowInSeconds: 60,
   });
+
+// The journey tracker batches events (flush every ~10s plus a 30s
+// heartbeat), so a normal visitor sends well under 20 requests a minute.
+// Headroom here covers several tabs / people behind one NAT.
+export const collectLimiter =
+  slidingWindowLimiter({
+    prefix: "analytics-collect",
+    limit: 120,
+    windowInSeconds: 60,
+  });
