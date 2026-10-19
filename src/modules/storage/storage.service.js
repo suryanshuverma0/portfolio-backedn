@@ -36,6 +36,10 @@ const MODEL_INFO = {
 
   Settings: { label: "Site settings", category: "Other" },
   Card: { label: "NFC business card", category: "Content" },
+  Notebook: { label: "Notes · notebooks", category: "Content" },
+  NoteTopic: { label: "Notes · topics", category: "Content" },
+  Note: { label: "Notes (typed & handwritten)", category: "Content" },
+  NoteVersion: { label: "Notes · version history", category: "Content" },
 };
 
 export const CATEGORIES = ["Analytics", "Content", "Blog", "Accounts", "Other"];

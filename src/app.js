@@ -31,6 +31,7 @@ import passkeyRoutes from "./modules/passkey/passkey.routes.js";
 import integrationsRoutes from "./modules/integrations/integrations.routes.js";
 import storageRoutes from "./modules/storage/storage.routes.js";
 import cardRoutes from "./modules/card/card.routes.js";
+import notesRoutes from "./modules/notes/notes.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -58,6 +59,8 @@ app.use(
   express.json({ limit: "64kb" }),
   express.text({ type: "text/plain", limit: "64kb" }),
 );
+// Notes carry full documents and handwriting (vector ink) on autosave.
+app.use("/api/v1/notes", express.json({ limit: "8mb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
@@ -109,6 +112,7 @@ app.use("/api/v1/passkey", passkeyRoutes);
 app.use("/api/v1/integrations", integrationsRoutes);
 app.use("/api/v1/storage", storageRoutes);
 app.use("/api/v1/card", cardRoutes);
+app.use("/api/v1/notes", notesRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
