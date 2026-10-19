@@ -49,7 +49,7 @@ const SOCIAL_SITES = [
   "pinterest.",
 ];
 
-const categorizeReferrer = (referrer) => {
+export const categorizeReferrer = (referrer) => {
   if (!referrer) {
     return { source: "Direct", hostname: null };
   }

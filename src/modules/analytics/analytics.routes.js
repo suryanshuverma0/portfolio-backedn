@@ -20,6 +20,7 @@ import {
   getLiveSessionsController,
   getJourneyInsightsController,
   getAdvancedInsightsController,
+  getDashboardInsightsController,
 } from "./journey.controller.js";
 
 import { trackSchema } from "./analytics.validation.js";
@@ -42,6 +43,8 @@ router.post(
 router.get("/overview", protectAdmin, getOverviewController);
 
 router.get("/dashboard", protectAdmin, getDashboardSummaryController);
+
+router.get("/dashboard/insights", protectAdmin, getDashboardInsightsController);
 
 router.get("/recent-activity", protectAdmin, getRecentActivityController);
 
