@@ -12,6 +12,7 @@ import { sendAdminEmail } from "../alerts/alerts.service.js";
 import { getStorageOverview } from "../storage/storage.service.js";
 import { getOrSetCache } from "../../utils/cache.js";
 import logger from "../../utils/logger.js";
+import { frontendUrl } from "../../utils/frontendUrl.js";
 
 // ---------------------------------------------------------------------------
 // Executive report: one period (week / month / quarter) against the one
@@ -279,7 +280,7 @@ const reportEmailHtml = (r) => {
       <div style="font-size:22px;font-weight:700;margin-top:4px">${esc(fmt(m.value))}</div>
       <div style="font-size:12px;color:${m.change === null || m.change >= 0 ? "#059669" : "#dc2626"}">${fmtChange(m.change)}</div>
     </td>`;
-  const link = `${process.env.FRONTEND_URL || ""}/dashboard/report?period=${r.period}`;
+  const link = `${frontendUrl()}/dashboard/report?period=${r.period}`;
   return `
   <div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111">
     <p style="color:#6b7280;margin:0">Portfolio report · last ${esc(r.label)}</p>

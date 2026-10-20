@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { AlertSettings, Alert } from "./alerts.model.js";
 import { VisitorSession, VisitorEvent } from "../analytics/journey.model.js";
 import logger from "../../utils/logger.js";
+import { frontendUrl } from "../../utils/frontendUrl.js";
 
 // ---------------------------------------------------------------------------
 // Admin notifications: stored in-app (bell in the admin header) and, when
@@ -177,7 +178,7 @@ export const checkLongVisit = async (sessionId) => {
   const durationMs = new Date(session.lastSeenAt) - new Date(session.startedAt);
   const onCard = (session.cardViews || 0) > 0 && !(session.portfolioPageViews > 0);
   const where = onCard ? "your NFC card" : "your portfolio";
-  const link = `${process.env.FRONTEND_URL || "https://suryanshuverma.com.np"}/dashboard/visitors/${sessionId}`;
+  const link = `${frontendUrl()}/dashboard/visitors/${sessionId}`;
 
   const title = `Visitor from ${location.replace(/^\S+\s/, "")} — ${settings.longVisit.minutes}+ min on ${where}`;
   const rows = [
@@ -232,7 +233,7 @@ export const notifyBackupFailed = (message) =>
           heading: "Your scheduled notes backup failed",
           intro: message,
           buttonLabel: "Open backup settings",
-          buttonUrl: `${process.env.FRONTEND_URL || ""}/dashboard/automations`,
+          buttonUrl: `${frontendUrl()}/dashboard/automations`,
         }),
       },
     },

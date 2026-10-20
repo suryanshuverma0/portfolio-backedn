@@ -8,6 +8,7 @@ import * as service from "./backups.service.js";
 import { BackupConfig } from "./backups.model.js";
 import { DRIVE_SCOPES, oauthClient, encrypt, decrypt, revokeDrive, isDriveConfigured } from "./backups.drive.js";
 import logger from "../../utils/logger.js";
+import { frontendUrl } from "../../utils/frontendUrl.js";
 
 const router = express.Router();
 
@@ -23,7 +24,6 @@ const handle = (fn) => async (req, res, next) => {
 const redirectUriFor = (req) =>
   process.env.GOOGLE_DRIVE_REDIRECT_URI || `${req.protocol}://${req.get("host")}/api/v1/backups/google/callback`;
 
-const frontendUrl = () => process.env.FRONTEND_URL || "https://suryanshuverma.com.np";
 
 /* ---------- Google OAuth callback (public: Google redirects here) ---------- */
 
