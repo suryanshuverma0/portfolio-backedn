@@ -59,6 +59,10 @@ const noteSchema = new mongoose.Schema(
     ink: { type: mongoose.Schema.Types.Mixed, default: null },
 
     lastVersionAt: { type: Date, default: null },
+
+    // Blog post this note was published as (kept when unpublished, so
+    // publishing again updates the same post and URL).
+    blogPost: { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: null },
     ...trashFields,
   },
   { timestamps: true, minimize: false },

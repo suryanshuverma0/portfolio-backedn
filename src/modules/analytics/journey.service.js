@@ -2,6 +2,7 @@ import PageView from "./analytics.model.js";
 import { VisitorSession, VisitorEvent } from "./journey.model.js";
 import { getOrSetCache } from "../../utils/cache.js";
 import logger from "../../utils/logger.js";
+import { checkLongVisit } from "../alerts/alerts.service.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -189,6 +190,11 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
       })),
       { ordered: false },
     );
+  }
+
+  // Fire-and-forget: alerting must never slow down or fail the tracker.
+  if (!network.isBot) {
+    checkLongVisit(sessionId).catch((error) => logger.warn({ action: "LONG_VISIT_ALERT_FAILED", error: error.message }));
   }
 
   logger.debug({ action: "COLLECT_EVENTS", sessionId, count: events.length });

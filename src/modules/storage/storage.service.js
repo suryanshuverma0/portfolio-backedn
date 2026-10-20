@@ -40,6 +40,10 @@ const MODEL_INFO = {
   NoteTopic: { label: "Notes · topics", category: "Content" },
   Note: { label: "Notes (typed & handwritten)", category: "Content" },
   NoteVersion: { label: "Notes · version history", category: "Content" },
+  Alert: { label: "Admin alerts", category: "Other" },
+  AlertSettings: { label: "Alert settings", category: "Other" },
+  BackupConfig: { label: "Backup settings", category: "Other" },
+  BackupRun: { label: "Backup history", category: "Other" },
 };
 
 export const CATEGORIES = ["Analytics", "Content", "Blog", "Accounts", "Other"];

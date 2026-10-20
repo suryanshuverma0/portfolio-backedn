@@ -10,6 +10,8 @@ import {
 } from "./src/config/redis.js";
 import logger from "./src/utils/logger.js";
 import validateEnv from "./src/config/env.js";
+import { startBackupScheduler } from "./src/modules/backups/backups.service.js";
+import { startReportScheduler } from "./src/modules/analytics/report.service.js";
 
 
 validateEnv();
@@ -28,6 +30,9 @@ const bootstrap = async () => {
     server.listen(PORT, "0.0.0.0", () => {
       logger.info(`Server running on port ${PORT}`);
     });
+
+    startBackupScheduler();
+    startReportScheduler();
   } catch (error) {
     logger.error(error);
     process.exit(1);

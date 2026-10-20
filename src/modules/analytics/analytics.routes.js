@@ -21,6 +21,9 @@ import {
   getJourneyInsightsController,
   getAdvancedInsightsController,
   getDashboardInsightsController,
+  getBlogAnalyticsController,
+  getReportController,
+  emailReportController,
 } from "./journey.controller.js";
 
 import { trackSchema } from "./analytics.validation.js";
@@ -45,6 +48,12 @@ router.get("/overview", protectAdmin, getOverviewController);
 router.get("/dashboard", protectAdmin, getDashboardSummaryController);
 
 router.get("/dashboard/insights", protectAdmin, getDashboardInsightsController);
+
+router.get("/blog", protectAdmin, getBlogAnalyticsController);
+
+router.get("/report", protectAdmin, getReportController);
+
+router.post("/report/email", protectAdmin, emailReportController);
 
 router.get("/recent-activity", protectAdmin, getRecentActivityController);
 

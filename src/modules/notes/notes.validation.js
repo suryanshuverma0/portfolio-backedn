@@ -83,6 +83,15 @@ export const noteUpdateSchema = z.object({
   ink: inkSchema.optional(),
 });
 
+export const publishSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  slug: z.string().trim().max(100).regex(/^[a-z0-9-]*$/, "Lowercase letters, numbers and hyphens only").optional(),
+  excerpt: z.string().trim().max(300).optional(),
+  coverImage: z.object({ publicId: z.string().min(1), url: z.string().url() }).nullable().optional(),
+  // Handwritten notes: PNG snapshot uploaded by the client.
+  imageUrl: z.string().url().max(600).optional(),
+});
+
 export const reorderSchema = z.object({
   type: z.enum(["notebook", "topic", "note"]),
   ids: z.array(objectId).min(1).max(500),

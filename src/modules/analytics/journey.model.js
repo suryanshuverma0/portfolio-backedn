@@ -81,6 +81,8 @@ const visitorSessionSchema = new mongoose.Schema(
     // Split of pageViews: /card (NFC business card) vs the rest of the site.
     portfolioPageViews: { type: Number },
     cardViews: { type: Number, default: 0 },
+    // Set once when the "long visit" admin alert fires for this session.
+    longVisitAlertedAt: { type: Date, default: null },
     eventCount: { type: Number, default: 0 },
     activeTimeMs: { type: Number, default: 0 },
     maxScrollDepth: { type: Number, default: 0 },

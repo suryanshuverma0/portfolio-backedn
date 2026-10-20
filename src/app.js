@@ -32,6 +32,8 @@ import integrationsRoutes from "./modules/integrations/integrations.routes.js";
 import storageRoutes from "./modules/storage/storage.routes.js";
 import cardRoutes from "./modules/card/card.routes.js";
 import notesRoutes from "./modules/notes/notes.routes.js";
+import alertsRoutes from "./modules/alerts/alerts.routes.js";
+import backupsRoutes from "./modules/backups/backups.routes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -61,6 +63,8 @@ app.use(
 );
 // Notes carry full documents and handwriting (vector ink) on autosave.
 app.use("/api/v1/notes", express.json({ limit: "8mb" }));
+// Restoring a notes backup uploads the whole JSON file.
+app.use("/api/v1/backups/restore", express.json({ limit: "50mb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
@@ -113,6 +117,8 @@ app.use("/api/v1/integrations", integrationsRoutes);
 app.use("/api/v1/storage", storageRoutes);
 app.use("/api/v1/card", cardRoutes);
 app.use("/api/v1/notes", notesRoutes);
+app.use("/api/v1/alerts", alertsRoutes);
+app.use("/api/v1/backups", backupsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

@@ -1,4 +1,6 @@
 import * as service from "./notes.service.js";
+import { publishNote, unpublishNote, getPublishStatus, breadcrumbFor, slugify } from "./notes.publish.js";
+import { renderNotePdf } from "./notes.pdf.js";
 
 // Thin wrappers: every handler resolves to { success, data }.
 const handle = (fn, status = 200) => async (req, res, next) => {
@@ -46,6 +48,24 @@ export const search = handle((req) =>
   }),
 );
 export const tags = handle(() => service.getTags());
+
+export const publishStatus = handle((req) => getPublishStatus(idParam("id")(req)));
+export const publish = handle((req) => publishNote(idParam("id")(req), req.user._id, req.validatedData));
+export const unpublish = handle((req) => unpublishNote(idParam("id")(req)));
+
+// Streams the PDF straight to the client.
+export const exportPdf = async (req, res, next) => {
+  try {
+    const note = await service.getNote(idParam("id")(req));
+    const doc = await renderNotePdf(note, { breadcrumb: await breadcrumbFor(note) });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${slugify(note.title)}.pdf"`);
+    res.setHeader("Cache-Control", "no-store");
+    doc.pipe(res);
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const listVersions = handle((req) => service.listVersions(idParam("id")(req)));
 export const getVersion = handle((req) => service.getVersion(idParam("id")(req), idParam("versionId")(req)));

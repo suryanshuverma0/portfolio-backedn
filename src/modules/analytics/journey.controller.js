@@ -10,6 +10,37 @@ import {
 import { getVisitorNetworkMeta } from "./analytics.utils.js";
 import { getAdvancedInsights } from "./insights.service.js";
 import { getDashboardInsights } from "./dashboard.service.js";
+import { getBlogAnalytics } from "./blogAnalytics.service.js";
+import { getExecutiveReport, emailReport, PERIODS } from "./report.service.js";
+
+const tzOf = (req) =>
+  typeof req.query.tz === "string" && isValidTimezone(req.query.tz) ? req.query.tz : "UTC";
+const periodOf = (value) => (Object.keys(PERIODS).includes(value) ? value : "week");
+
+export const getBlogAnalyticsController = async (req, res, next) => {
+  try {
+    const range = Math.min(365, Math.max(1, Number.parseInt(req.query.range, 10) || 30));
+    res.status(200).json({ success: true, data: await getBlogAnalytics(range, tzOf(req)) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getReportController = async (req, res, next) => {
+  try {
+    res.status(200).json({ success: true, data: await getExecutiveReport(periodOf(req.query.period), tzOf(req)) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const emailReportController = async (req, res, next) => {
+  try {
+    res.status(200).json({ success: true, data: await emailReport(periodOf(req.query.period), tzOf(req)) });
+  } catch (error) {
+    next(error);
+  }
+};
 
 const DEVICES = ["desktop", "mobile", "tablet"];
 

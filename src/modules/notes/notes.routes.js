@@ -11,6 +11,7 @@ import {
   noteCreateSchema,
   noteUpdateSchema,
   reorderSchema,
+  publishSchema,
 } from "./notes.validation.js";
 
 // Private notes — every route is admin-only.
@@ -39,6 +40,10 @@ router.post("/", validate(noteCreateSchema), c.createNote);
 router.get("/:id", c.getNote);
 router.patch("/:id", validate(noteUpdateSchema), c.updateNote);
 router.delete("/:id", c.deleteNote);
+router.get("/:id/pdf", c.exportPdf);
+router.get("/:id/publish", c.publishStatus);
+router.post("/:id/publish", validate(publishSchema), c.publish);
+router.post("/:id/unpublish", c.unpublish);
 router.get("/:id/versions", c.listVersions);
 router.get("/:id/versions/:versionId", c.getVersion);
 router.post("/:id/versions/:versionId/restore", c.restoreVersion);
