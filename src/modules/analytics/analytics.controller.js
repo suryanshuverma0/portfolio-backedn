@@ -4,10 +4,15 @@ import {
   getDashboardSummary,
   getRecentActivity,
 } from "./analytics.service.js";
-import { getRequestMeta } from "./analytics.utils.js";
+import { getRequestMeta, getClientIp } from "./analytics.utils.js";
+import { isOwnerVisit } from "../alerts/alerts.service.js";
 
 export const trackController = async (req, res, next) => {
   try {
+    if (await isOwnerVisit({ visitorId: req.validatedData.visitorId, ip: getClientIp(req) })) {
+      return res.status(201).json({ success: true, message: "Page view tracked" });
+    }
+
     await trackPageView({
       ...req.validatedData,
       ...getRequestMeta(req),

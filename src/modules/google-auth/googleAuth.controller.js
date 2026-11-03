@@ -1,4 +1,5 @@
 import { googleLogin } from "./googleAuth.service.js";
+import { recordLogin } from "../audit/audit.service.js";
 
 /*
   Cookie options are duplicated from the password-auth controller on purpose,
@@ -23,7 +24,17 @@ export const googleLoginController = async (req, res, next) => {
   try {
     const { credential } = req.validatedData;
 
-    const { user, accessToken, refreshToken } = await googleLogin(credential);
+    let result;
+
+    try {
+      result = await googleLogin(credential);
+    } catch (error) {
+      recordLogin(req, { method: "google", success: false, reason: error.message });
+      throw error;
+    }
+
+    const { user, accessToken, refreshToken } = result;
+    recordLogin(req, { user, method: "google", success: true });
 
     res
       .status(200)

@@ -23,11 +23,20 @@ const alertSettingsSchema = new mongoose.Schema(
     // panel is opened on that device.
     ignoreOwner: { type: Boolean, default: true },
     ownerVisitorIds: { type: [String], default: [] },
+    // IPs that belong to the admin (home / office Wi-Fi) — covers devices
+    // that never open the admin panel.
+    ownerIps: { type: [String], default: [] },
+    // Drop the owner's visits from analytics entirely (not just alerts).
+    excludeOwnerFromAnalytics: { type: Boolean, default: true },
+    // Alert when someone on a company / university network visits.
+    companyVisit: {
+      enabled: { type: Boolean, default: true },
+    },
   },
   { timestamps: true },
 );
 
-export const ALERT_TYPES = ["long_visit", "backup_failed", "test"];
+export const ALERT_TYPES = ["long_visit", "company_visit", "backup_failed", "test"];
 
 const alertSchema = new mongoose.Schema(
   {

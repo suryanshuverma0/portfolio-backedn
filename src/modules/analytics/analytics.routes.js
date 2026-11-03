@@ -21,6 +21,9 @@ import {
   getJourneyInsightsController,
   getAudienceInsightsController,
   getGeoDebugController,
+  getCompaniesController,
+  purgeOwnerDataController,
+  exportCsvController,
   getAdvancedInsightsController,
   getDashboardInsightsController,
   getBlogAnalyticsController,
@@ -30,15 +33,20 @@ import {
 
 import { trackSchema } from "./analytics.validation.js";
 import { collectSchema } from "./journey.validation.js";
+import goalsRoutes from "./goals.routes.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
+router.use("/goals", goalsRoutes);
+
 // Legacy single page-view endpoint — kept so cached older frontend bundles
 // keep working. The current tracker uses /collect.
-router.post("/track", trackLimiter, validate(trackSchema), trackController);
+router.post("/track", blockGuard({ silent: true }), trackLimiter, validate(trackSchema), trackController);
 
 router.post(
   "/collect",
+  blockGuard({ silent: true }),
   collectLimiter,
   parseBeaconBody,
   validate(collectSchema),
@@ -64,6 +72,12 @@ router.get("/journey", protectAdmin, getJourneyInsightsController);
 router.get("/audience", protectAdmin, getAudienceInsightsController);
 
 router.get("/debug/geo", protectAdmin, getGeoDebugController);
+
+router.get("/companies", protectAdmin, getCompaniesController);
+
+router.get("/export", protectAdmin, exportCsvController);
+
+router.post("/owner-data/purge", protectAdmin, purgeOwnerDataController);
 
 router.get("/insights", protectAdmin, getAdvancedInsightsController);
 

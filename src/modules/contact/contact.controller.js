@@ -2,6 +2,7 @@ import {
   createMessage,
   getMessages,
   markMessageRead,
+  setMessageArchived,
   deleteMessage,
   replyToMessage,
 } from "./contact.service.js";
@@ -39,6 +40,20 @@ export const markMessageReadController = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: "Marked as read",
+      data: message,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const archiveMessageController = async (req, res, next) => {
+  try {
+    const message = await setMessageArchived(req.params.id, req.body?.archived !== false);
+
+    res.status(200).json({
+      success: true,
+      message: message.archived ? "Archived" : "Moved to inbox",
       data: message,
     });
   } catch (error) {

@@ -26,6 +26,17 @@ export const createPostSchema = z.object({
   tags: z.array(z.string()).max(20).optional(),
 
   isVisible: z.boolean().optional(),
+
+  // ISO date-time to auto-publish at, or null to cancel a schedule.
+  scheduledAt: z
+    .union([
+      z.null(),
+      z
+        .string()
+        .datetime({ offset: true })
+        .refine((value) => new Date(value) > new Date(Date.now() - 60 * 1000), "Schedule time must be in the future"),
+    ])
+    .optional(),
 });
 
 export const updatePostSchema = createPostSchema.partial();

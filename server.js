@@ -12,6 +12,7 @@ import logger from "./src/utils/logger.js";
 import validateEnv from "./src/config/env.js";
 import { startBackupScheduler } from "./src/modules/backups/backups.service.js";
 import { startReportScheduler } from "./src/modules/analytics/report.service.js";
+import { startBlogScheduler } from "./src/modules/blog/blog.service.js";
 
 
 validateEnv();
@@ -33,6 +34,7 @@ const bootstrap = async () => {
 
     startBackupScheduler();
     startReportScheduler();
+    startBlogScheduler();
   } catch (error) {
     logger.error(error);
     process.exit(1);

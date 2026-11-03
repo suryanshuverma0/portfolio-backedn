@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { AlertSettings, Alert } from "./alerts.model.js";
 import { VisitorSession, VisitorEvent } from "../analytics/journey.model.js";
 import logger from "../../utils/logger.js";
+import redis from "../../config/redis.js";
 import { frontendUrl } from "../../utils/frontendUrl.js";
 
 // ---------------------------------------------------------------------------
@@ -42,6 +43,32 @@ export const registerOwnerDevice = async (visitorId) => {
   // Keep the 20 most recent devices.
   await AlertSettings.updateOne({}, { $push: { ownerVisitorIds: { $each: [visitorId], $slice: -20 } } }, { upsert: true });
   settingsCache = { value: null, at: 0 };
+};
+
+const OWNER_IPS_MAX = 20;
+
+export const addOwnerIp = async (ip) => {
+  if (!ip) return getAlertSettings({ fresh: true });
+  await AlertSettings.updateOne({}, { $addToSet: { ownerIps: ip } }, { upsert: true });
+  await AlertSettings.updateOne({}, { $push: { ownerIps: { $each: [], $slice: -OWNER_IPS_MAX } } });
+  settingsCache = { value: null, at: 0 };
+  return getAlertSettings({ fresh: true });
+};
+
+export const removeOwner = async ({ ip, visitorId }) => {
+  const pull = {};
+  if (ip) pull.ownerIps = ip;
+  if (visitorId) pull.ownerVisitorIds = visitorId;
+  await AlertSettings.updateOne({}, { $pull: pull });
+  settingsCache = { value: null, at: 0 };
+  return getAlertSettings({ fresh: true });
+};
+
+// True when a tracked visit is the admin's own and should not be recorded.
+export const isOwnerVisit = async ({ visitorId, ip }) => {
+  const settings = await getAlertSettings();
+  if (!settings.excludeOwnerFromAnalytics) return false;
+  return settings.ownerVisitorIds.includes(visitorId) || Boolean(ip && (settings.ownerIps || []).includes(ip));
 };
 
 /* ---------- email ---------- */
@@ -214,6 +241,63 @@ export const checkLongVisit = async (sessionId) => {
           intro: "They're probably reading closely — here's what they've looked at so far.",
           rows,
           buttonLabel: "View their journey",
+          buttonUrl: link,
+        }),
+      },
+    },
+  );
+};
+
+/* ---------- company visit ---------- */
+
+const ORG_TYPE_LABELS = { company: "a company", education: "a university / school", government: "a government" };
+
+// Called once per new session after its IP lookup. One alert per
+// organisation per 12 hours, however many people from it visit.
+export const notifyCompanyVisit = async (session, { org, type }) => {
+  const settings = await getAlertSettings();
+  if (!settings.companyVisit?.enabled) return;
+  if (settings.ignoreOwner && settings.ownerVisitorIds.includes(session.visitorId)) return;
+
+  const claimed = await redis.set(`alert:company:${org.toLowerCase()}`, "1", { NX: true, EX: 12 * 60 * 60 });
+  if (!claimed) return;
+
+  const location = session.location?.country
+    ? `${flag(session.location.country)} ${[session.location.city, countryName(session.location.country)].filter(Boolean).join(", ")}`
+    : "Unknown location";
+  const link = `${frontendUrl()}/dashboard/visitors/${session.sessionId}`;
+  const title = `${org} is viewing your portfolio`;
+  const rows = [
+    ["Organisation", org],
+    ["Network type", ORG_TYPE_LABELS[type] || type],
+    ["Where", location],
+    ["Device", [session.device, session.browser, session.os].filter(Boolean).join(" · ")],
+    ["Came from", describeSource(session)],
+    ["Landing page", pageName(session.entryPage || session.landingUrl)],
+    ["IP", session.ip],
+  ];
+
+  await createAlert(
+    {
+      type: "company_visit",
+      title,
+      body: rows
+        .slice(1, 5)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(" · "),
+      link: `/dashboard/visitors/${session.sessionId}`,
+      sessionId: session.sessionId,
+      meta: { org, type, location: session.location },
+    },
+    {
+      email: {
+        subject: `🏢 ${title}`,
+        html: emailLayout({
+          heading: `Someone on ${org}'s network just opened your portfolio`,
+          intro: "Their connection belongs to an organisation, not a home ISP — possibly a recruiter or a team checking you out.",
+          rows,
+          buttonLabel: "Watch their journey",
           buttonUrl: link,
         }),
       },

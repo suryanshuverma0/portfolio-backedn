@@ -62,12 +62,20 @@ const postSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Hidden posts with a scheduledAt are published automatically at that
+    // time by the blog scheduler (which then clears it).
+    scheduledAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true },
 );
 
 postSchema.index({ isVisible: 1, publishedAt: -1 });
 postSchema.index({ tags: 1 });
+postSchema.index({ scheduledAt: 1 }, { partialFilterExpression: { isVisible: false } });
 
 const Post = mongoose.model("Post", postSchema);
 export default Post;

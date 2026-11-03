@@ -28,6 +28,7 @@ import {
   updatePostSchema,
   createCommentSchema,
 } from "./blog.validation.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
@@ -53,6 +54,7 @@ router.get("/public/:slug/comments", getApprovedCommentsController);
 
 router.post(
   "/public/:slug/comments",
+  blockGuard(),
   commentLimiter,
   validate(createCommentSchema),
   createCommentController,

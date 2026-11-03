@@ -59,6 +59,12 @@ const messageSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Archived messages drop out of the inbox but are kept.
+    archived: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );

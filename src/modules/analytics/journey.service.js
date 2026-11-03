@@ -2,8 +2,9 @@ import PageView from "./analytics.model.js";
 import { VisitorSession, VisitorEvent } from "./journey.model.js";
 import { getOrSetCache } from "../../utils/cache.js";
 import logger from "../../utils/logger.js";
-import { checkLongVisit } from "../alerts/alerts.service.js";
+import { checkLongVisit, notifyCompanyVisit, getAlertSettings } from "../alerts/alerts.service.js";
 import { lookupIp, mergeLocation } from "./geo.service.js";
+import { classifyOrg, cleanOrg, NOTABLE_TYPES } from "./network.classify.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -101,9 +102,14 @@ const enrichSessionGeo = async (sessionId, ip, location) => {
   if (!online) return;
 
   const set = { location: mergeLocation(location, online.location) };
-  if (online.network?.org || online.network?.asn) set.network = compact(online.network);
+  const org = cleanOrg(online.network?.org);
+  const type = classifyOrg(org);
 
-  await VisitorSession.updateOne({ sessionId }, { $set: set });
+  if (org || online.network?.asn) set.network = compact({ ...online.network, org: org || undefined, type: type || undefined });
+
+  const session = await VisitorSession.findOneAndUpdate({ sessionId }, { $set: set }, { returnDocument: "after" }).lean();
+
+  if (session && org && NOTABLE_TYPES.includes(type)) await notifyCompanyVisit(session, { org, type });
 };
 
 export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}, events }, network) => {
@@ -674,6 +680,7 @@ export const getAudienceInsights = async (rangeDays) => {
             { $group: { _id: { $gt: ["$sessions", 1] }, count: { $sum: 1 } } },
           ],
           countries: topBy("$location.country", 12),
+          countryMap: topBy("$location.country", 250),
           regions: [
             { $match: { "location.city": { $nin: [null, ""] } } },
             {
@@ -737,6 +744,7 @@ export const getAudienceInsights = async (rangeDays) => {
       },
       visitors: { new: loyalty.new || 0, returning: loyalty.returning || 0 },
       countries: toRows(facets.countries),
+      countryMap: toRows(facets.countryMap),
       cities: facets.regions.map((row) => ({ ...row._id, count: row.count })),
       devices: toRows(facets.devices),
       browsers: toRows(facets.browsers),
@@ -754,4 +762,190 @@ export const getAudienceInsights = async (rangeDays) => {
       browserEngagement: toEngagement(facets.browserEngagement),
     };
   });
+};
+
+// ---------------------------------------------------------------------------
+// Companies — organisations whose network visitors came from (ISP lookup).
+// Home/mobile ISPs and cloud hosts are left out unless asked for.
+// ---------------------------------------------------------------------------
+
+export const getCompanies = async ({ rangeDays, includeAll = false }) => {
+  const since = new Date(Date.now() - rangeDays * DAY_MS);
+
+  const rows = await VisitorSession.aggregate([
+    {
+      $match: {
+        startedAt: { $gte: since },
+        isBot: { $ne: true },
+        ...PORTFOLIO_SESSION,
+        "network.org": { $nin: [null, ""] },
+      },
+    },
+    { $sort: { lastSeenAt: -1 } },
+    {
+      $group: {
+        _id: "$network.org",
+        sessions: { $sum: 1 },
+        visitors: { $addToSet: "$visitorId" },
+        pageViews: { $sum: "$pageViews" },
+        activeTimeMs: { $sum: "$activeTimeMs" },
+        maxScrollDepth: { $max: "$maxScrollDepth" },
+        firstSeenAt: { $min: "$startedAt" },
+        lastSeenAt: { $max: "$lastSeenAt" },
+        latestSessionId: { $first: "$sessionId" },
+        asn: { $first: "$network.asn" },
+        type: { $first: "$network.type" },
+        places: { $addToSet: { city: "$location.city", country: "$location.country" } },
+        sources: { $addToSet: { $ifNull: ["$utm.source", "$referrer"] } },
+      },
+    },
+    { $sort: { lastSeenAt: -1 } },
+    { $limit: 300 },
+  ]);
+
+  const companies = rows
+    .map((row) => ({
+      org: row._id,
+      type: row.type || classifyOrg(row._id),
+      asn: row.asn,
+      sessions: row.sessions,
+      visitors: row.visitors.length,
+      pageViews: row.pageViews,
+      activeTimeMs: row.activeTimeMs,
+      maxScrollDepth: row.maxScrollDepth,
+      firstSeenAt: row.firstSeenAt,
+      lastSeenAt: row.lastSeenAt,
+      latestSessionId: row.latestSessionId,
+      places: row.places.filter((p) => p.country).slice(0, 5),
+      sources: row.sources.filter(Boolean).slice(0, 5),
+    }))
+    .filter((row) => includeAll || NOTABLE_TYPES.includes(row.type));
+
+  return { companies, rangeDays };
+};
+
+// ---------------------------------------------------------------------------
+// Owner data — removes everything already recorded from the admin's own
+// devices / IPs (future visits are dropped at /collect).
+// ---------------------------------------------------------------------------
+
+export const purgeOwnerData = async () => {
+  const settings = await getAlertSettings({ fresh: true });
+  const visitorIds = settings.ownerVisitorIds || [];
+  const ips = settings.ownerIps || [];
+
+  if (!visitorIds.length && !ips.length) return { sessions: 0, events: 0, pageViews: 0 };
+
+  const sessions = await VisitorSession.find({ $or: [{ visitorId: { $in: visitorIds } }, { ip: { $in: ips } }] })
+    .select("sessionId visitorId")
+    .lean();
+  const sessionIds = sessions.map((s) => s.sessionId);
+  const allVisitorIds = [...new Set([...visitorIds, ...sessions.map((s) => s.visitorId)])];
+
+  const [sessionResult, eventResult, pageViewResult] = await Promise.all([
+    VisitorSession.deleteMany({ sessionId: { $in: sessionIds } }),
+    VisitorEvent.deleteMany({ sessionId: { $in: sessionIds } }),
+    PageView.deleteMany({ visitorId: { $in: allVisitorIds } }),
+  ]);
+
+  logger.info({ action: "OWNER_DATA_PURGED", sessions: sessionResult.deletedCount });
+
+  return {
+    sessions: sessionResult.deletedCount,
+    events: eventResult.deletedCount,
+    pageViews: pageViewResult.deletedCount,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// CSV export — streamed straight from a cursor so large ranges don't sit in
+// memory.
+// ---------------------------------------------------------------------------
+
+const EXPORT_LIMIT = 100000;
+
+// Quotes every cell and neutralises spreadsheet formulas (=, +, -, @).
+const csvCell = (value) => {
+  if (value === undefined || value === null) return "";
+
+  let text = value instanceof Date ? value.toISOString() : String(value);
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+const EXPORTS = {
+  sessions: {
+    columns: [
+      ["started_at", (s) => s.startedAt],
+      ["last_seen_at", (s) => s.lastSeenAt],
+      ["duration_sec", (s) => Math.round((new Date(s.lastSeenAt) - new Date(s.startedAt)) / 1000)],
+      ["engaged_sec", (s) => Math.round((s.activeTimeMs || 0) / 1000)],
+      ["session_id", (s) => s.sessionId],
+      ["visitor_id", (s) => s.visitorId],
+      ["ip", (s) => s.ip],
+      ["country", (s) => s.location?.country],
+      ["region", (s) => s.location?.regionName || s.location?.region],
+      ["city", (s) => s.location?.city],
+      ["network", (s) => s.network?.org],
+      ["network_type", (s) => s.network?.type],
+      ["device", (s) => s.device],
+      ["device_model", (s) => [s.deviceVendor, s.deviceModel].filter(Boolean).join(" ")],
+      ["browser", (s) => [s.browser, s.browserVersion].filter(Boolean).join(" ")],
+      ["os", (s) => [s.os, s.osVersion].filter(Boolean).join(" ")],
+      ["screen", (s) => s.screen],
+      ["language", (s) => s.language],
+      ["timezone", (s) => s.timezone],
+      ["referrer", (s) => s.referrer],
+      ["utm_source", (s) => s.utm?.source],
+      ["utm_medium", (s) => s.utm?.medium],
+      ["utm_campaign", (s) => s.utm?.campaign],
+      ["entry_page", (s) => s.entryPage],
+      ["exit_page", (s) => s.exitPage],
+      ["page_views", (s) => s.pageViews],
+      ["events", (s) => s.eventCount],
+      ["max_scroll_pct", (s) => s.maxScrollDepth],
+      ["is_bot", (s) => Boolean(s.isBot)],
+    ],
+    cursor: (since, includeBots) =>
+      VisitorSession.find({
+        startedAt: { $gte: since },
+        ...(includeBots ? {} : { isBot: { $ne: true } }),
+        ...PORTFOLIO_SESSION,
+      })
+        .sort({ startedAt: -1 })
+        .limit(EXPORT_LIMIT)
+        .lean()
+        .cursor(),
+  },
+  events: {
+    columns: [
+      ["at", (e) => e.at],
+      ["session_id", (e) => e.sessionId],
+      ["visitor_id", (e) => e.visitorId],
+      ["type", (e) => e.type],
+      ["path", (e) => e.path],
+      ["section", (e) => e.section],
+      ["label", (e) => e.label],
+      ["target", (e) => e.target],
+      ["value", (e) => e.value],
+      ["title", (e) => e.title],
+    ],
+    cursor: (since) =>
+      VisitorEvent.find({ at: { $gte: since } }).sort({ at: -1 }).limit(EXPORT_LIMIT).lean().cursor(),
+  },
+};
+
+export const EXPORT_TYPES = Object.keys(EXPORTS);
+
+export const streamCsvExport = async ({ type, rangeDays, includeBots = false }, write) => {
+  const { columns, cursor } = EXPORTS[type];
+  const since = new Date(Date.now() - rangeDays * DAY_MS);
+
+  // BOM so Excel opens the file as UTF-8 (city names, page titles).
+  await write(`\uFEFF${columns.map(([name]) => name).join(",")}\n`);
+
+  for await (const row of cursor(since, includeBots)) {
+    await write(`${columns.map(([, get]) => csvCell(get(row))).join(",")}\n`);
+  }
 };

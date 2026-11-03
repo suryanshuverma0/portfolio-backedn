@@ -9,6 +9,7 @@ import {
   deleteUser,
 } from "./auth.service.js";
 import jwt from "jsonwebtoken";
+import { recordLogin } from "../audit/audit.service.js";
 export const registerController = async (req, res, next) => {
   try {
     const { email, password } = req.validatedData;
@@ -51,7 +52,16 @@ export const loginController = async (req, res, next) => {
   try {
     const { email, password } = req.validatedData;
 
-    const data = await loginUser(email, password);
+    let data;
+
+    try {
+      data = await loginUser(email, password);
+    } catch (error) {
+      recordLogin(req, { email, method: "password", success: false, reason: error.message });
+      throw error;
+    }
+
+    recordLogin(req, { user: data.user, email, method: "password", success: true });
 
     res
       .status(200)

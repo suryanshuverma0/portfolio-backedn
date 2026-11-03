@@ -6,8 +6,13 @@ import {
   getLiveSessions,
   getJourneyInsights,
   getAudienceInsights,
+  getCompanies,
+  purgeOwnerData,
+  streamCsvExport,
+  EXPORT_TYPES,
   isValidTimezone,
 } from "./journey.service.js";
+import { isOwnerVisit } from "../alerts/alerts.service.js";
 import { getVisitorNetworkMeta } from "./analytics.utils.js";
 import { lookupIp, mergeLocation } from "./geo.service.js";
 import { getAdvancedInsights } from "./insights.service.js";
@@ -66,7 +71,14 @@ export const parseBeaconBody = (req, res, next) => {
 
 export const collectController = async (req, res, next) => {
   try {
-    await collectEvents(req.validatedData, getVisitorNetworkMeta(req));
+    const network = getVisitorNetworkMeta(req);
+
+    // The admin's own devices / networks are dropped silently.
+    if (await isOwnerVisit({ visitorId: req.validatedData.visitorId, ip: network.ip })) {
+      return res.status(204).end();
+    }
+
+    await collectEvents(req.validatedData, network);
 
     res.status(204).end();
   } catch (error) {
@@ -218,6 +230,56 @@ export const getGeoDebugController = async (req, res, next) => {
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const getCompaniesController = async (req, res, next) => {
+  try {
+    const data = await getCompanies({
+      rangeDays: clampInt(req.query.range, 1, 3650, 30),
+      includeAll: req.query.all === "true",
+    });
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const purgeOwnerDataController = async (req, res, next) => {
+  try {
+    res.status(200).json({ success: true, data: await purgeOwnerData() });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const exportCsvController = async (req, res, next) => {
+  const type = EXPORT_TYPES.includes(req.query.type) ? req.query.type : "sessions";
+  const rangeDays = clampInt(req.query.range, 1, 3650, 30);
+
+  try {
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    res.status(200);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="portfolio-${type}-${rangeDays}d-${stamp}.csv"`);
+    res.setHeader("Cache-Control", "no-store");
+
+    // Respect backpressure so a slow download doesn't buffer the whole file.
+    const write = (chunk) =>
+      res.write(chunk) ? Promise.resolve() : new Promise((resolve) => res.once("drain", resolve));
+
+    await streamCsvExport({ type, rangeDays, includeBots: req.query.bots === "true" }, write);
+
+    res.end();
+  } catch (error) {
+    if (res.headersSent) {
+      res.destroy(error);
+      return;
+    }
+
     next(error);
   }
 };

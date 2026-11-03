@@ -1,3 +1,4 @@
+import { recordLogin } from "../audit/audit.service.js";
 import {
   getRegistrationOptions,
   verifyRegistration,
@@ -150,7 +151,17 @@ export const authenticationVerifyController = async (req, res, next) => {
   try {
     const { response } = req.validatedData;
 
-    const { user, accessToken, refreshToken } = await verifyAuthentication(response);
+    let result;
+
+    try {
+      result = await verifyAuthentication(response);
+    } catch (error) {
+      recordLogin(req, { method: "passkey", success: false, reason: error.message });
+      throw error;
+    }
+
+    const { user, accessToken, refreshToken } = result;
+    recordLogin(req, { user, method: "passkey", success: true });
 
     res
       .status(200)

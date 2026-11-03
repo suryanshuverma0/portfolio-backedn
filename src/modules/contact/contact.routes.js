@@ -8,11 +8,13 @@ import {
   createMessageController,
   getMessagesController,
   markMessageReadController,
+  archiveMessageController,
   deleteMessageController,
   replyToMessageController,
 } from "./contact.controller.js";
 
 import { createMessageSchema, replyMessageSchema } from "./contact.validation.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
@@ -26,6 +28,7 @@ const messageLimiter = slidingWindowLimiter({
 
 router.post(
   "/",
+  blockGuard(),
   messageLimiter,
   validate(createMessageSchema),
   createMessageController,
@@ -34,6 +37,8 @@ router.post(
 router.get("/", protectAdmin, getMessagesController);
 
 router.put("/:id/read", protectAdmin, markMessageReadController);
+
+router.put("/:id/archive", protectAdmin, archiveMessageController);
 
 router.delete("/:id", protectAdmin, deleteMessageController);
 

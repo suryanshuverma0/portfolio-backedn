@@ -41,6 +41,20 @@ export const markMessageRead = async (id) => {
   return message;
 };
 
+export const setMessageArchived = async (id, archived) => {
+  const message = await Message.findByIdAndUpdate(
+    id,
+    { $set: { archived, ...(archived && { isRead: true }) } },
+    { new: true },
+  );
+
+  if (!message) {
+    throw new Error("Message not found");
+  }
+
+  return message;
+};
+
 export const deleteMessage = async (id) => {
   const message = await Message.findByIdAndDelete(id);
 

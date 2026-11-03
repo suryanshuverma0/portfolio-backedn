@@ -46,6 +46,8 @@ const visitorSessionSchema = new mongoose.Schema(
     network: {
       asn: { type: String, maxlength: 20 },
       org: { type: String, maxlength: 150 },
+      // "isp" | "hosting" | "company" | "education" | "government"
+      type: { type: String, maxlength: 20 },
     },
 
     // --- device (server-derived from User-Agent) ---
@@ -100,6 +102,7 @@ const visitorSessionSchema = new mongoose.Schema(
 
 visitorSessionSchema.index({ startedAt: -1 });
 visitorSessionSchema.index({ lastSeenAt: -1 });
+visitorSessionSchema.index({ "network.org": 1, lastSeenAt: -1 });
 
 const visitorEventSchema = new mongoose.Schema(
   {

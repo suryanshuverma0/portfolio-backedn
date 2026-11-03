@@ -1,4 +1,5 @@
 import Post from "./blog.model.js";
+import logger from "../../utils/logger.js";
 
 const WORDS_PER_MINUTE = 200;
 
@@ -22,6 +23,8 @@ export const createPost = async (userId, postData) => {
     ...postData,
     readingTime: computeReadingTime(postData.content),
     publishedAt: postData.isVisible ? new Date() : null,
+    // A schedule only applies to drafts.
+    scheduledAt: postData.isVisible ? null : postData.scheduledAt ? new Date(postData.scheduledAt) : null,
   });
 
   return post;
@@ -69,6 +72,15 @@ export const updatePost = async (id, updateData) => {
   // overwritten by later edits, so it reflects the original publish date.
   if (updateData.isVisible && !existing.isVisible) {
     nextData.publishedAt = new Date();
+  }
+
+  if (updateData.scheduledAt !== undefined) {
+    nextData.scheduledAt = updateData.scheduledAt ? new Date(updateData.scheduledAt) : null;
+  }
+
+  // Publishing by hand cancels any pending schedule.
+  if (updateData.isVisible ?? existing.isVisible) {
+    nextData.scheduledAt = null;
   }
 
   const post = await Post.findByIdAndUpdate(
@@ -132,4 +144,39 @@ export const getPublicPostBySlug = async (slug) => {
 
 export const getAllTags = async () => {
   return Post.distinct("tags", { isVisible: true });
+};
+
+/* ========================================
+   SCHEDULED PUBLISHING
+========================================= */
+
+let schedulerTimer = null;
+
+// Publishes every draft whose scheduledAt has passed. publishedAt is the
+// scheduled time itself, so a late tick doesn't shift the post's date.
+export const publishDuePosts = async () => {
+  const due = await Post.find({ isVisible: false, scheduledAt: { $ne: null, $lte: new Date() } })
+    .select("_id title scheduledAt")
+    .lean();
+
+  for (const post of due) {
+    await Post.updateOne(
+      { _id: post._id, isVisible: false },
+      { $set: { isVisible: true, publishedAt: post.scheduledAt, scheduledAt: null } },
+    );
+
+    logger.info({ action: "BLOG_POST_AUTO_PUBLISHED", postId: String(post._id), title: post.title });
+  }
+
+  return due.length;
+};
+
+export const startBlogScheduler = () => {
+  if (schedulerTimer) return;
+
+  const tick = () => publishDuePosts().catch((error) => logger.warn({ action: "BLOG_SCHEDULER_FAILED", error: error.message }));
+
+  tick();
+  schedulerTimer = setInterval(tick, 60 * 1000);
+  schedulerTimer.unref?.();
 };

@@ -4,6 +4,7 @@ import { z } from "zod";
 import protectAdmin from "../../middleware/protectAdmin.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import * as service from "./alerts.service.js";
+import { getClientIp } from "../analytics/analytics.utils.js";
 
 const router = express.Router();
 router.use(protectAdmin);
@@ -44,7 +45,13 @@ const settingsSchema = z.object({
     })
     .optional(),
   ignoreOwner: z.boolean().optional(),
+  excludeOwnerFromAnalytics: z.boolean().optional(),
+  companyVisit: z.object({ enabled: z.boolean().optional() }).optional(),
 });
+
+const removeOwnerSchema = z
+  .object({ ip: z.string().max(64).optional(), visitorId: z.string().max(100).optional() })
+  .refine((v) => v.ip || v.visitorId, "ip or visitorId is required");
 
 const ownerDeviceSchema = z.object({ visitorId: z.string().min(1).max(100) });
 
@@ -76,6 +83,9 @@ router.get(
 );
 router.put("/settings", validate(settingsSchema), handle((req) => service.updateAlertSettings(req.validatedData)));
 router.post("/owner-device", validate(ownerDeviceSchema), handle((req) => service.registerOwnerDevice(req.validatedData.visitorId)));
+// Marks the IP this request comes from (the admin's current network) as theirs.
+router.post("/owner-ip", handle((req) => service.addOwnerIp(getClientIp(req))));
+router.post("/owner/remove", validate(removeOwnerSchema), handle((req) => service.removeOwner(req.validatedData)));
 router.post("/test", handle(() => service.sendTestAlert()));
 
 export default router;
