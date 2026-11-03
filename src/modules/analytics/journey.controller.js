@@ -5,9 +5,11 @@ import {
   deleteSession,
   getLiveSessions,
   getJourneyInsights,
+  getAudienceInsights,
   isValidTimezone,
 } from "./journey.service.js";
 import { getVisitorNetworkMeta } from "./analytics.utils.js";
+import { lookupIp, mergeLocation } from "./geo.service.js";
 import { getAdvancedInsights } from "./insights.service.js";
 import { getDashboardInsights } from "./dashboard.service.js";
 import { getBlogAnalytics } from "./blogAnalytics.service.js";
@@ -172,6 +174,49 @@ export const getJourneyInsightsController = async (req, res, next) => {
     const data = await getJourneyInsights(clampInt(req.query.range, 1, 3650, 30), timezone);
 
     res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAudienceInsightsController = async (req, res, next) => {
+  try {
+    const data = await getAudienceInsights(clampInt(req.query.range, 1, 3650, 30));
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Shows what the server sees for the admin's own request — the quickest way
+// to check the proxy chain when locations come out wrong.
+export const getGeoDebugController = async (req, res, next) => {
+  try {
+    const network = getVisitorNetworkMeta(req);
+    const online = await lookupIp(network.ip);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        resolvedIp: network.ip,
+        expressIp: req.ip,
+        headers: Object.fromEntries(
+          [
+            "x-forwarded-for",
+            "cf-connecting-ip",
+            "true-client-ip",
+            "x-real-ip",
+            "cf-ipcountry",
+            "cf-ipcity",
+            "cf-region",
+          ].map((name) => [name, req.headers[name] ?? null]),
+        ),
+        location: mergeLocation(network.location, online?.location),
+        network: online?.network ?? null,
+        onlineLookup: online ? "ok" : "unavailable",
+      },
+    });
   } catch (error) {
     next(error);
   }

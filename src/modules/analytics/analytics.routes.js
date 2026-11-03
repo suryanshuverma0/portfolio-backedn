@@ -19,6 +19,8 @@ import {
   deleteSessionController,
   getLiveSessionsController,
   getJourneyInsightsController,
+  getAudienceInsightsController,
+  getGeoDebugController,
   getAdvancedInsightsController,
   getDashboardInsightsController,
   getBlogAnalyticsController,
@@ -58,6 +60,10 @@ router.post("/report/email", protectAdmin, emailReportController);
 router.get("/recent-activity", protectAdmin, getRecentActivityController);
 
 router.get("/journey", protectAdmin, getJourneyInsightsController);
+
+router.get("/audience", protectAdmin, getAudienceInsightsController);
+
+router.get("/debug/geo", protectAdmin, getGeoDebugController);
 
 router.get("/insights", protectAdmin, getAdvancedInsightsController);
 

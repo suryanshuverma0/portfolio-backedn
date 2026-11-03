@@ -3,6 +3,7 @@ import { VisitorSession, VisitorEvent } from "./journey.model.js";
 import { getOrSetCache } from "../../utils/cache.js";
 import logger from "../../utils/logger.js";
 import { checkLongVisit } from "../alerts/alerts.service.js";
+import { lookupIp, mergeLocation } from "./geo.service.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MINUTE_MS = 60 * 1000;
@@ -31,6 +32,7 @@ const SESSION_SUMMARY_FIELDS = {
   visitorId: 1,
   ip: 1,
   location: 1,
+  network: 1,
   device: 1,
   deviceVendor: 1,
   deviceModel: 1,
@@ -91,6 +93,19 @@ const compact = (obj) =>
 const upsertSession = (filter, update) =>
   VisitorSession.updateOne(filter, update, { upsert: true });
 
+// Upgrades a new session's location (and adds ISP/ASN) from the online
+// lookup. Runs after the tracker has been answered.
+const enrichSessionGeo = async (sessionId, ip, location) => {
+  const online = await lookupIp(ip);
+
+  if (!online) return;
+
+  const set = { location: mergeLocation(location, online.location) };
+  if (online.network?.org || online.network?.asn) set.network = compact(online.network);
+
+  await VisitorSession.updateOne({ sessionId }, { $set: set });
+};
+
 export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}, events }, network) => {
   const now = Date.now();
 
@@ -138,8 +153,10 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
     },
   };
 
+  let isNewSession = false;
+
   try {
-    await upsertSession({ sessionId }, update);
+    isNewSession = (await upsertSession({ sessionId }, update)).upsertedCount > 0;
   } catch (error) {
     // Two batches of a brand-new session racing each other: the loser hits
     // the unique index, but the document exists now, so retrying updates it.
@@ -193,6 +210,12 @@ export const collectEvents = async ({ sessionId, visitorId, sentAt, context = {}
   }
 
   // Fire-and-forget: alerting must never slow down or fail the tracker.
+  if (isNewSession && !network.isBot) {
+    enrichSessionGeo(sessionId, network.ip, network.location).catch((error) =>
+      logger.warn({ action: "GEO_ENRICH_FAILED", sessionId, error: error.message }),
+    );
+  }
+
   if (!network.isBot) {
     checkLongVisit(sessionId).catch((error) => logger.warn({ action: "LONG_VISIT_ALERT_FAILED", error: error.message }));
   }
@@ -229,6 +252,8 @@ export const listSessions = async ({
       { ip: pattern },
       { "location.city": pattern },
       { "location.region": pattern },
+      { "location.regionName": pattern },
+      { "network.org": pattern },
       { visitorId: pattern },
       { sessionId: pattern },
       { referrer: pattern },
@@ -566,6 +591,167 @@ export const getJourneyInsights = async (rangeDays, timezone) => {
         count: durationCounts.get(bucketStarts[index]) || 0,
       })),
       timezone,
+    };
+  });
+};
+
+// ---------------------------------------------------------------------------
+// Audience — who visits and what they use, plus how engaged each device /
+// browser group is. One $facet pass over the range's sessions.
+// ---------------------------------------------------------------------------
+
+const topBy = (field, limit) => [
+  { $group: { _id: { $ifNull: [field, null] }, count: { $sum: 1 } } },
+  { $sort: { count: -1 } },
+  { $limit: limit },
+];
+
+const engagementBy = (field) => [
+  {
+    $group: {
+      _id: { $ifNull: [field, null] },
+      sessions: { $sum: 1 },
+      avgDurationMs: { $avg: durationExpr },
+      avgActiveTimeMs: { $avg: "$activeTimeMs" },
+      avgPageViews: { $avg: "$pageViews" },
+      avgScrollDepth: { $avg: "$maxScrollDepth" },
+      bounces: { $sum: { $cond: [bounceExpr, 1, 0] } },
+    },
+  },
+  { $sort: { sessions: -1 } },
+  { $limit: 6 },
+];
+
+const hasValue = (field) => ({ $cond: [{ $gt: [field, null] }, 1, 0] });
+
+const referrerHost = (referrer) => {
+  if (!referrer) return "Direct";
+
+  try {
+    return new URL(referrer).hostname.replace(/^www\./, "");
+  } catch {
+    return referrer.slice(0, 60);
+  }
+};
+
+const toRows = (rows) => rows.map((row) => ({ label: row._id ?? null, count: row.count }));
+
+const toEngagement = (rows) =>
+  rows.map((row) => ({
+    label: row._id ?? null,
+    sessions: row.sessions,
+    avgDurationMs: Math.round(row.avgDurationMs || 0),
+    avgActiveTimeMs: Math.round(row.avgActiveTimeMs || 0),
+    avgPageViews: Math.round((row.avgPageViews || 0) * 10) / 10,
+    avgScrollDepth: Math.round(row.avgScrollDepth || 0),
+    bounceRate: row.sessions ? Math.round((row.bounces / row.sessions) * 1000) / 10 : 0,
+  }));
+
+export const getAudienceInsights = async (rangeDays) => {
+  return getOrSetCache(`analytics:audience:${rangeDays}`, 120, async () => {
+    const since = new Date(Date.now() - rangeDays * DAY_MS);
+
+    const [facets] = await VisitorSession.aggregate([
+      { $match: { startedAt: { $gte: since }, isBot: { $ne: true }, ...PORTFOLIO_SESSION } },
+      {
+        $facet: {
+          coverage: [
+            {
+              $group: {
+                _id: null,
+                sessions: { $sum: 1 },
+                withCountry: { $sum: hasValue("$location.country") },
+                withCity: { $sum: hasValue("$location.city") },
+                withNetwork: { $sum: hasValue("$network.org") },
+                touch: { $sum: { $cond: [{ $eq: ["$touch", true] }, 1, 0] } },
+                activeTimeMs: { $sum: "$activeTimeMs" },
+                durationMs: { $sum: durationExpr },
+              },
+            },
+          ],
+          loyalty: [
+            { $group: { _id: "$visitorId", sessions: { $sum: 1 } } },
+            { $group: { _id: { $gt: ["$sessions", 1] }, count: { $sum: 1 } } },
+          ],
+          countries: topBy("$location.country", 12),
+          regions: [
+            { $match: { "location.city": { $nin: [null, ""] } } },
+            {
+              $group: {
+                _id: {
+                  city: "$location.city",
+                  region: { $ifNull: ["$location.regionName", "$location.region"] },
+                  country: "$location.country",
+                },
+                count: { $sum: 1 },
+              },
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 },
+          ],
+          devices: topBy("$device", 3),
+          browsers: topBy("$browser", 8),
+          os: topBy("$os", 8),
+          screens: topBy("$screen", 8),
+          languages: topBy("$language", 8),
+          connections: topBy("$connection", 5),
+          themes: topBy("$colorScheme", 3),
+          networks: topBy("$network.org", 8),
+          referrers: topBy("$referrer", 60),
+          deviceEngagement: engagementBy("$device"),
+          browserEngagement: engagementBy("$browser"),
+        },
+      },
+    ]);
+
+    const coverage = facets.coverage[0] || {
+      sessions: 0,
+      withCountry: 0,
+      withCity: 0,
+      withNetwork: 0,
+      touch: 0,
+      activeTimeMs: 0,
+      durationMs: 0,
+    };
+
+    // Raw referrer URLs → hostnames, merged.
+    const sources = new Map();
+    facets.referrers.forEach((row) => {
+      const host = referrerHost(row._id);
+      sources.set(host, (sources.get(host) || 0) + row.count);
+    });
+
+    const loyalty = Object.fromEntries(facets.loyalty.map((row) => [row._id ? "returning" : "new", row.count]));
+
+    return {
+      coverage: {
+        sessions: coverage.sessions,
+        withCountry: coverage.withCountry,
+        withCity: coverage.withCity,
+        withNetwork: coverage.withNetwork,
+        touchSessions: coverage.touch,
+        // Share of time on site the tab was actually visible and in use.
+        engagementRatio: coverage.durationMs
+          ? Math.min(100, Math.round((coverage.activeTimeMs / coverage.durationMs) * 100))
+          : 0,
+      },
+      visitors: { new: loyalty.new || 0, returning: loyalty.returning || 0 },
+      countries: toRows(facets.countries),
+      cities: facets.regions.map((row) => ({ ...row._id, count: row.count })),
+      devices: toRows(facets.devices),
+      browsers: toRows(facets.browsers),
+      os: toRows(facets.os),
+      screens: toRows(facets.screens),
+      languages: toRows(facets.languages),
+      connections: toRows(facets.connections),
+      themes: toRows(facets.themes),
+      networks: toRows(facets.networks),
+      sources: [...sources.entries()]
+        .map(([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10),
+      deviceEngagement: toEngagement(facets.deviceEngagement),
+      browserEngagement: toEngagement(facets.browserEngagement),
     };
   });
 };

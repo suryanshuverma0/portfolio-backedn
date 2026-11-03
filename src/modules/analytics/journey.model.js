@@ -35,9 +35,17 @@ const visitorSessionSchema = new mongoose.Schema(
     location: {
       country: { type: String, maxlength: 2 },
       region: { type: String, maxlength: 10 },
+      regionName: { type: String, maxlength: 100 },
       city: { type: String, maxlength: 100 },
+      postal: { type: String, maxlength: 20 },
       timezone: { type: String, maxlength: 60 },
       ll: { type: [Number], default: undefined },
+      // "cloudflare" | "geoip" | "ipapi" — which lookup produced it.
+      source: { type: String, maxlength: 20 },
+    },
+    network: {
+      asn: { type: String, maxlength: 20 },
+      org: { type: String, maxlength: 150 },
     },
 
     // --- device (server-derived from User-Agent) ---
