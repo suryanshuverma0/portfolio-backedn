@@ -258,9 +258,9 @@ export const draftFromRepo = async (input) => {
       learnings: sectionBullets(secs, /learn|takeaway|lesson/i, 8),
       githubUrl: info.html_url,
       liveUrl: homepage,
-      thumbnail: { publicId: "", url: homepage ? screenshot(homepage) : images[0] || `https://opengraph.githubassets.com/1/${info.full_name}` },
+      thumbnail: { publicId: "", url: homepage ? screenshot(homepage) : images[0] || `https://opengraph.githubassets.com/portfolio/${info.full_name}` },
       gallery: images.map((url) => ({ publicId: "", url })),
-      meta: { stars: info.stargazers_count, forks: info.forks_count, pushedAt: info.pushed_at, socialCard: `https://opengraph.githubassets.com/1/${info.full_name}`, images },
+      meta: { stars: info.stargazers_count, forks: info.forks_count, pushedAt: info.pushed_at, socialCard: `https://opengraph.githubassets.com/portfolio/${info.full_name}`, images },
     };
   });
 };
