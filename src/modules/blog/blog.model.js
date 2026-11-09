@@ -45,6 +45,11 @@ const postSchema = new mongoose.Schema(
 
     tags: [{ type: String, trim: true }],
 
+    // Optional search/social overrides; the title and excerpt are used
+    // when these are empty.
+    seoTitle: { type: String, trim: true, maxlength: 70, default: "" },
+    seoDescription: { type: String, trim: true, maxlength: 170, default: "" },
+
     // Minutes, computed server-side from content word count on save.
     readingTime: {
       type: Number,

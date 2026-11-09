@@ -21,9 +21,12 @@ export const createPostSchema = z.object({
 
   content: z.string().min(1, "Content is required"),
 
-  coverImage: imageObjectSchema.optional(),
+  // null removes the cover.
+  coverImage: imageObjectSchema.nullable().optional(),
 
   tags: z.array(z.string()).max(20).optional(),
+  seoTitle: z.string().trim().max(70).optional(),
+  seoDescription: z.string().trim().max(170).optional(),
 
   isVisible: z.boolean().optional(),
 
