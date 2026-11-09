@@ -15,6 +15,10 @@ const REFRESH_MS = 60 * 1000;
 let blockList = new net.BlockList();
 let entries = [];
 let loadedAt = 0;
+// Earliest expiry among loaded entries — forces a rebuild once it passes.
+let nextExpiry = Infinity;
+
+const activeFilter = () => ({ $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }] });
 
 // "1.2.3.4" | "1.2.3.0/24" | "2001:db8::/32" → { address, prefix, family } or null
 export const parseBlockValue = (raw) => {
@@ -53,13 +57,14 @@ const rebuild = (docs) => {
   blockList = next;
   entries = docs.map((doc) => ({ id: String(doc._id), value: doc.value }));
   loadedAt = Date.now();
+  nextExpiry = Math.min(Infinity, ...docs.filter((doc) => doc.expiresAt).map((doc) => new Date(doc.expiresAt).getTime()));
 };
 
 const refresh = async ({ force = false } = {}) => {
-  if (!force && Date.now() - loadedAt < REFRESH_MS) return;
+  if (!force && Date.now() - loadedAt < REFRESH_MS && Date.now() < nextExpiry) return;
 
   try {
-    rebuild(await BlockedIp.find({}).select("value").lean());
+    rebuild(await BlockedIp.find(activeFilter()).select("value expiresAt").lean());
   } catch (error) {
     logger.warn({ action: "BLOCKLIST_REFRESH_FAILED", error: error.message });
   }
@@ -103,7 +108,29 @@ export const blockGuard =
 
 /* ---------- admin ---------- */
 
-export const listBlocked = () => BlockedIp.find({}).sort({ createdAt: -1 }).lean();
+export const listBlocked = () => BlockedIp.find(activeFilter()).sort({ createdAt: -1 }).lean();
+
+// Temporary ban from the auto-ban system. Extends an existing temporary
+// ban; never shortens or replaces a permanent manual entry.
+export const banIp = async ({ value, reason, hours }) => {
+  const parsed = parseBlockValue(value);
+  if (!parsed) return null;
+
+  const existing = await BlockedIp.findOne({ value: parsed.value }).lean();
+  if (existing && !existing.expiresAt) return null;
+
+  const expiresAt = new Date(Date.now() + hours * 60 * 60 * 1000);
+
+  const doc = await BlockedIp.findOneAndUpdate(
+    { value: parsed.value },
+    { $set: { reason, expiresAt, auto: true }, $setOnInsert: { value: parsed.value } },
+    { upsert: true, returnDocument: "after" },
+  ).lean();
+
+  await refresh({ force: true });
+
+  return doc;
+};
 
 export const addBlocked = async ({ value, reason }, requesterIp) => {
   const parsed = parseBlockValue(value);
@@ -125,9 +152,10 @@ export const addBlocked = async ({ value, reason }, requesterIp) => {
     throw error;
   }
 
+  // A manual block is permanent — it also turns an auto-ban into one.
   const doc = await BlockedIp.findOneAndUpdate(
     { value: parsed.value },
-    { $set: { reason: reason || "" }, $setOnInsert: { value: parsed.value } },
+    { $set: { reason: reason || "", expiresAt: null, auto: false }, $setOnInsert: { value: parsed.value } },
     { upsert: true, returnDocument: "after" },
   ).lean();
 

@@ -3,18 +3,29 @@ import {
   loginUser,
   forgotPassword,
   resetPassword,
-  refreshAccessToken,
   logoutUser,
   getAllUsers,
   deleteUser,
 } from "./auth.service.js";
 import jwt from "jsonwebtoken";
 import { recordLogin } from "../audit/audit.service.js";
+import {
+  startSession,
+  rotateSession,
+  revokeSession,
+  revokeAllSessions,
+  listSessions,
+  sessionIdFromRequest,
+  setAuthCookies,
+} from "./session.service.js";
+import { notifySecurityEvent } from "../security/security.service.js";
 export const registerController = async (req, res, next) => {
   try {
     const { email, password } = req.validatedData;
 
     const data = await registerUser(email, password);
+
+    Object.assign(data, await startSession(req, data.user, "password"));
 
     res
       .status(201)
@@ -62,6 +73,8 @@ export const loginController = async (req, res, next) => {
     }
 
     recordLogin(req, { user: data.user, email, method: "password", success: true });
+
+    Object.assign(data, await startSession(req, data.user, "password"));
 
     res
       .status(200)
@@ -136,11 +149,15 @@ export const resetPasswordController = async (req, res, next) => {
 export const logoutController = async (req, res, next) => {
   try {
     const refreshToken = req.cookies.refreshToken;
+    const sessionId = sessionIdFromRequest(req);
+
+    if (sessionId) await revokeSession(req.user._id, sessionId, "signed_out");
 
     if (refreshToken) {
       const decoded = jwt.verify(
         refreshToken,
         process.env.REFRESH_TOKEN_SECRET,
+        { ignoreExpiration: true },
       );
 
       await logoutUser(decoded.id);
@@ -202,24 +219,59 @@ export const refreshTokenController = async (req, res, next) => {
   try {
     const refreshToken = req.cookies.refreshToken;
 
-    const data = await refreshAccessToken(refreshToken);
+    const data = await rotateSession(refreshToken, req, {
+      onReuse: ({ user, session, ip }) =>
+        notifySecurityEvent({
+          title: "A copied sign-in token was used — that device was signed out",
+          body: `Session on ${[session.browser, session.os].filter(Boolean).join(" · ") || "a device"} (${user.email}) was ended after an old refresh token was replayed from ${ip || "an unknown IP"}.`,
+          link: "/dashboard/security",
+          ip,
+        }).catch(() => {}),
+    });
 
-    res
+    setAuthCookies(res, data)
       .status(200)
-      .cookie("accessToken", data.accessToken, {
-        httpOnly: true,
-
-        secure: process.env.NODE_ENV === "production",
-
-        sameSite: "none",
-
-        maxAge: 15 * 60 * 1000,
-      })
       .json({
         success: true,
 
         message: "Access token refreshed",
       });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ---------- device sessions ---------- */
+
+export const listSessionsController = async (req, res, next) => {
+  try {
+    res.status(200).json({ success: true, data: await listSessions(req.user._id, req.sessionId) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const revokeSessionController = async (req, res, next) => {
+  try {
+    if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
+      return res.status(400).json({ success: false, message: "Invalid session id" });
+    }
+
+    const revoked = await revokeSession(req.user._id, req.params.id, "remote");
+
+    if (!revoked) return res.status(404).json({ success: false, message: "Session not found or already ended" });
+
+    res.status(200).json({ success: true, message: "Device signed out" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const revokeOtherSessionsController = async (req, res, next) => {
+  try {
+    const count = await revokeAllSessions(req.user._id, "signed_out_everywhere", { except: req.sessionId });
+
+    res.status(200).json({ success: true, message: `Signed out ${count} other device${count === 1 ? "" : "s"}`, data: { count } });
   } catch (error) {
     next(error);
   }

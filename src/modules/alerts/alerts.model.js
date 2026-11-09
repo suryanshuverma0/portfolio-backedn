@@ -36,7 +36,7 @@ const alertSettingsSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-export const ALERT_TYPES = ["long_visit", "company_visit", "backup_failed", "test"];
+export const ALERT_TYPES = ["long_visit", "company_visit", "security", "backup_failed", "test"];
 
 const alertSchema = new mongoose.Schema(
   {

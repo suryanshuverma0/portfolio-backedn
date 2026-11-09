@@ -6,6 +6,7 @@ import { isAdminEmail } from "../../utils/adminEmails.js";
 import { isPublicAccessEnabled } from "../../utils/publicAccess.js";
 import { sendPasswordResetEmail } from "../../utils/email.js";
 import logger from "../../utils/logger.js";
+import { revokeAllSessions } from "./session.service.js";
 
 const restrictedAccessError = () => {
   const error = new Error(
@@ -238,6 +239,9 @@ export const resetPassword = async (token, password) => {
 
   await user.save();
 
+  // A reset means the old password may be known — end every device.
+  await revokeAllSessions(user._id, "password_reset");
+
   return {
     message: "Password reset successful",
   };
@@ -297,4 +301,6 @@ export const deleteUser = async (userId, requestingAdminId) => {
     error.statusCode = 404;
     throw error;
   }
+
+  await revokeAllSessions(userId, "account_deleted");
 };

@@ -1,4 +1,5 @@
 import { recordLogin } from "../audit/audit.service.js";
+import { startSession } from "../auth/session.service.js";
 import {
   getRegistrationOptions,
   verifyRegistration,
@@ -89,7 +90,8 @@ export const linkVerifyController = async (req, res, next) => {
   try {
     const { token, response, name } = req.validatedData;
 
-    const { user, accessToken, refreshToken } = await verifyLink(token, response, name);
+    const { user } = await verifyLink(token, response, name);
+    const { accessToken, refreshToken } = await startSession(req, user, "passkey");
 
     res
       .status(201)
@@ -121,7 +123,8 @@ export const signupVerifyController = async (req, res, next) => {
   try {
     const { email, response, name } = req.validatedData;
 
-    const { user, accessToken, refreshToken } = await verifySignup(email, response, name);
+    const { user } = await verifySignup(email, response, name);
+    const { accessToken, refreshToken } = await startSession(req, user, "passkey");
 
     res
       .status(201)
@@ -160,8 +163,10 @@ export const authenticationVerifyController = async (req, res, next) => {
       throw error;
     }
 
-    const { user, accessToken, refreshToken } = result;
+    const { user } = result;
     recordLogin(req, { user, method: "passkey", success: true });
+
+    const { accessToken, refreshToken } = await startSession(req, user, "passkey");
 
     res
       .status(200)

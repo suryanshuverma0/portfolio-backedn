@@ -28,6 +28,7 @@ import {
   renamePasskeyController,
   deletePasskeyController,
 } from "./passkey.controller.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
@@ -133,9 +134,10 @@ router.post(
 );
 
 // --- Authentication (logging in with a passkey) ---
-router.post("/authentication/options", passkeyAuthLimiter, authenticationOptionsController);
+router.post("/authentication/options", blockGuard(), passkeyAuthLimiter, authenticationOptionsController);
 router.post(
   "/authentication/verify",
+  blockGuard(),
   passkeyAuthLimiter,
   validate(authenticationVerifySchema),
   authenticationVerifyController,

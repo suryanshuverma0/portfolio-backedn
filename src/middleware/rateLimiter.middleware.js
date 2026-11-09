@@ -3,6 +3,8 @@ import crypto from "crypto";
 
 import redis from "../config/redis.js";
 import { slidingWindowLua } from "./lua/slidingWindow.lua.js";
+import { recordOffense } from "../modules/security/security.service.js";
+import { getClientIp } from "../modules/analytics/analytics.utils.js";
 
 // Cloudflare sits in front of this app and overwrites this header with the
 // real visitor IP on every request, unlike a bare X-Forwarded-For entry
@@ -15,6 +17,9 @@ export const slidingWindowLimiter = ({
   limit,
   windowInSeconds,
   keyBy = defaultKeyBy,
+  // Whether hitting this limit counts toward an auto-ban. Off for limiters
+  // a real visitor can trip (tracker, token refresh across many tabs).
+  countsAsOffense = true,
 }) => {
   return async (req, res, next) => {
     try {
@@ -64,6 +69,8 @@ export const slidingWindowLimiter = ({
       );
 
       if (!allowed) {
+        if (countsAsOffense) recordOffense(getClientIp(req), "rate_limited");
+
         res.setHeader(
           "Retry-After",
           retryAfter

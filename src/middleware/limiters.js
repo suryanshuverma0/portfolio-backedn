@@ -63,6 +63,7 @@ export const refreshTokenLimiter =
     prefix: "refresh-token",
     limit: 30,
     windowInSeconds: 60,
+    countsAsOffense: false,
   });
 
 export const trackLimiter =
@@ -70,6 +71,7 @@ export const trackLimiter =
     prefix: "analytics-track",
     limit: 60,
     windowInSeconds: 60,
+    countsAsOffense: false,
   });
 
 // The journey tracker batches events (flush every ~10s plus a 30s
@@ -80,4 +82,5 @@ export const collectLimiter =
     prefix: "analytics-collect",
     limit: 120,
     windowInSeconds: 60,
+    countsAsOffense: false,
   });

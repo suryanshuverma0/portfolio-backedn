@@ -5,6 +5,7 @@ import { slidingWindowLimiter } from "../../middleware/rateLimiter.middleware.js
 
 import { googleLoginSchema } from "./googleAuth.validation.js";
 import { googleLoginController } from "./googleAuth.controller.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
@@ -20,6 +21,7 @@ const googleLoginLimiter = slidingWindowLimiter({
 
 router.post(
   "/login",
+  blockGuard(),
   googleLoginLimiter,
   validate(googleLoginSchema),
   googleLoginController,

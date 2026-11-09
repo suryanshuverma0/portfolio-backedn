@@ -3,6 +3,7 @@ import redis from "../../config/redis.js";
 import logger from "../../utils/logger.js";
 import { getVisitorNetworkMeta } from "../analytics/analytics.utils.js";
 import { lookupIp } from "../analytics/geo.service.js";
+import { recordOffense } from "../security/security.service.js";
 
 // Request → where it came from. The online location lookup runs after the
 // entry is written, so sign-in never waits on it.
@@ -61,6 +62,8 @@ export const recordLogin = (req, { user, email, method, success, reason }) => {
       },
       context.ip,
     );
+
+    if (!success) recordOffense(context.ip, "login_failed");
   } catch (error) {
     logger.warn({ action: "AUDIT_LOGIN_FAILED", error: error.message });
   }

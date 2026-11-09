@@ -29,6 +29,7 @@ import {
   createCommentSchema,
 } from "./blog.validation.js";
 import { blockGuard } from "../blocklist/blocklist.service.js";
+import { spamTrap } from "../security/security.service.js";
 
 const router = express.Router();
 
@@ -55,6 +56,7 @@ router.get("/public/:slug/comments", getApprovedCommentsController);
 router.post(
   "/public/:slug/comments",
   blockGuard(),
+  spamTrap({ success: { success: true, message: "Comment submitted — it will appear once approved." } }),
   commentLimiter,
   validate(createCommentSchema),
   createCommentController,

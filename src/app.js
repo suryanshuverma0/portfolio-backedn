@@ -38,6 +38,7 @@ import auditRoutes from "./modules/audit/audit.routes.js";
 import blocklistRoutes from "./modules/blocklist/blocklist.routes.js";
 import systemRoutes from "./modules/system/system.routes.js";
 import searchRoutes from "./modules/search/search.routes.js";
+import securityRoutes from "./modules/security/security.routes.js";
 import { auditTrail } from "./modules/audit/audit.service.js";
 
 const app = express();
@@ -131,6 +132,7 @@ app.use("/api/v1/audit", auditRoutes);
 app.use("/api/v1/blocklist", blocklistRoutes);
 app.use("/api/v1/system", systemRoutes);
 app.use("/api/v1/search", searchRoutes);
+app.use("/api/v1/security", securityRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

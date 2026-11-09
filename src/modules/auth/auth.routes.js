@@ -28,14 +28,19 @@ import {
   logoutController,
   getMeController,
   refreshTokenController,
+  listSessionsController,
+  revokeSessionController,
+  revokeOtherSessionsController,
   getAllUsersController,
   deleteUserController,
 } from "./auth.controller.js";
+import { blockGuard } from "../blocklist/blocklist.service.js";
 
 const router = express.Router();
 
 router.post(
   "/register",
+  blockGuard(),
   registerLimiter,
   validate(registerSchema),
   registerController,
@@ -43,6 +48,7 @@ router.post(
 
 router.post(
   "/login",
+  blockGuard(),
   loginLimiter,
   loginByEmailLimiter,
   validate(loginSchema),
@@ -67,6 +73,10 @@ router.post(
 router.post("/refresh-token", refreshTokenLimiter, refreshTokenController);
 
 router.post("/logout", protect, logoutController);
+
+router.get("/sessions", protect, listSessionsController);
+router.post("/sessions/revoke-others", protect, revokeOtherSessionsController);
+router.delete("/sessions/:id", protect, revokeSessionController);
 
 router.get("/me", protect, getMeController);
 

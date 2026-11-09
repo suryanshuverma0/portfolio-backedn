@@ -15,6 +15,7 @@ import {
 
 import { createMessageSchema, replyMessageSchema } from "./contact.validation.js";
 import { blockGuard } from "../blocklist/blocklist.service.js";
+import { spamTrap } from "../security/security.service.js";
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ const messageLimiter = slidingWindowLimiter({
 router.post(
   "/",
   blockGuard(),
+  spamTrap({ success: { success: true, message: "Message sent — thanks for reaching out!" } }),
   messageLimiter,
   validate(createMessageSchema),
   createMessageController,

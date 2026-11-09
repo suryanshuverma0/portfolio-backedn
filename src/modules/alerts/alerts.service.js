@@ -305,6 +305,26 @@ export const notifyCompanyVisit = async (session, { org, type }) => {
   );
 };
 
+/* ---------- security ---------- */
+
+// Auto-bans, stolen-token detection and similar — bell + email.
+export const notifySecurityEvent = ({ title, body, link = "/dashboard/security", ip }) =>
+  createAlert(
+    { type: "security", title: title.slice(0, 200), body: (body || "").slice(0, 1000), link, meta: { ip } },
+    {
+      email: {
+        subject: `🛡️ ${title}`,
+        html: emailLayout({
+          heading: title,
+          intro: body || "",
+          rows: [["IP", ip], ["When", new Date().toUTCString()]],
+          buttonLabel: "Open security settings",
+          buttonUrl: `${frontendUrl()}${link}`,
+        }),
+      },
+    },
+  );
+
 /* ---------- other alerts ---------- */
 
 export const notifyBackupFailed = (message) =>
