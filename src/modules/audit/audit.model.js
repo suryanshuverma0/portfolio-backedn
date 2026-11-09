@@ -9,7 +9,7 @@ const auditLogSchema = new mongoose.Schema(
     actorEmail: { type: String, trim: true, lowercase: true, maxlength: 200 },
 
     // --- login ---
-    method: { type: String, enum: ["password", "google", "passkey"] },
+    method: { type: String, enum: ["password", "google", "passkey", "qr"] },
     success: { type: Boolean },
     reason: { type: String, maxlength: 200 },
 

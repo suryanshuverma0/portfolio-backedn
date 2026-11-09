@@ -275,6 +275,7 @@ const REVOKE_LABELS = {
   remote: "Signed out remotely",
   signed_out_everywhere: "Signed out everywhere",
   password_reset: "Password reset",
+  password_changed: "Password changed",
   token_reuse: "Ended — token reuse detected",
   limit: "Too many devices",
   account_deleted: "Account removed",

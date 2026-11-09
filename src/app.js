@@ -25,6 +25,9 @@ import projectRoutes from "./modules/projects/project.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import settingsRoutes from "./modules/settings/settings.routes.js";
 import appearanceRoutes from "./modules/appearance/appearance.routes.js";
+import accountRoutes from "./modules/auth/account.routes.js";
+import pushRoutes from "./modules/push/push.routes.js";
+import resumeRoutes from "./modules/resume/resume.routes.js";
 import googleAuthRoutes from "./modules/google-auth/googleAuth.routes.js";
 import blogRoutes from "./modules/blog/blog.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
@@ -70,6 +73,8 @@ app.use(
 );
 // Notes carry full documents and handwriting (vector ink) on autosave.
 app.use("/api/v1/notes", express.json({ limit: "8mb" }));
+// Resume configs carry item selections and custom bullet text.
+app.use("/api/v1/resume", express.json({ limit: "200kb" }));
 // Restoring a notes backup uploads the whole JSON file.
 app.use("/api/v1/backups/restore", express.json({ limit: "50mb" }));
 app.use(express.json({ limit: "10kb" }));
@@ -120,6 +125,9 @@ app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/settings", settingsRoutes);
 app.use("/api/v1/appearance", appearanceRoutes);
+app.use("/api/v1/account", accountRoutes);
+app.use("/api/v1/push", pushRoutes);
+app.use("/api/v1/resume", resumeRoutes);
 app.use("/api/v1/google-auth", googleAuthRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/contact", contactRoutes);

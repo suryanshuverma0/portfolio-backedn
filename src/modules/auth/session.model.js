@@ -7,7 +7,7 @@ import mongoose from "mongoose";
 const authSessionSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    method: { type: String, enum: ["password", "google", "passkey", "legacy"], default: "password" },
+    method: { type: String, enum: ["password", "google", "passkey", "qr", "legacy"], default: "password" },
 
     tokenHash: { type: String, required: true },
     // The token rotated away most recently — accepted briefly so two tabs

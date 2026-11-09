@@ -4,6 +4,7 @@ import { VisitorSession, VisitorEvent } from "../analytics/journey.model.js";
 import logger from "../../utils/logger.js";
 import redis from "../../config/redis.js";
 import { frontendUrl } from "../../utils/frontendUrl.js";
+import { sendPushToAll } from "../push/push.service.js";
 
 // ---------------------------------------------------------------------------
 // Admin notifications: stored in-app (bell in the admin header) and, when
@@ -139,6 +140,9 @@ export const sendAdminEmail = async ({ subject, html, attachments }) => {
 const createAlert = async (data, { email } = {}) => {
   const alert = await Alert.create(data);
   const settings = await getAlertSettings();
+
+  // Phone / tablet / desktop push — fire and forget, never blocks the alert.
+  sendPushToAll({ title: data.title, body: data.body, url: data.link || "/dashboard", tag: String(alert._id) });
 
   if (email && settings.email.enabled) {
     try {
@@ -372,6 +376,8 @@ export const listAlerts = async (limit = 30) => {
 };
 
 export const markRead = (id) => Alert.updateOne({ _id: id }, { read: true });
+export const markUnread = (id) => Alert.updateOne({ _id: id }, { read: false });
+export const deleteAlert = (id) => Alert.deleteOne({ _id: id });
 export const markAllRead = () => Alert.updateMany({ read: false }, { read: true });
 export const clearAlerts = () => Alert.deleteMany({});
 

@@ -58,17 +58,18 @@ const ownerDeviceSchema = z.object({ visitorId: z.string().min(1).max(100) });
 router.get("/", handle((req) => service.listAlerts(Math.min(100, Number(req.query.limit) || 30))));
 router.post("/read-all", handle(() => service.markAllRead()));
 router.delete("/", handle(() => service.clearAlerts()));
-router.post(
-  "/:id/read",
-  handle((req) => {
-    if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
-      const error = new Error("Invalid id");
-      error.statusCode = 400;
-      throw error;
-    }
-    return service.markRead(req.params.id);
-  }),
-);
+const checkId = (req) => {
+  if (!/^[a-f\d]{24}$/i.test(req.params.id)) {
+    const error = new Error("Invalid id");
+    error.statusCode = 400;
+    throw error;
+  }
+  return req.params.id;
+};
+
+router.post("/:id/read", handle((req) => service.markRead(checkId(req))));
+router.post("/:id/unread", handle((req) => service.markUnread(checkId(req))));
+router.delete("/:id", handle((req) => service.deleteAlert(checkId(req))));
 
 router.get(
   "/settings",
