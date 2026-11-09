@@ -25,7 +25,7 @@ const usernameFromUrl = (url) => {
   }
 };
 
-const getConfiguredUsernames = async () => {
+export const getConfiguredUsernames = async () => {
   const settings = await Settings.findOne({}).select("socials").lean();
 
   return {

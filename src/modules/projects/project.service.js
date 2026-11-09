@@ -37,13 +37,15 @@ export const createProject = async (userId, projectData) => {
 
 // Shared site content — not scoped per admin account.
 export const getProjects = async () => {
-  return await Project.find({}).sort({ order: 1 });
+  return await Project.find({}).sort({ order: 1, createdAt: -1 }).lean();
 };
 
 export const getPublicProjects = async () => {
   return await Project.find({
     isVisible: true,
-  }).sort({ order: 1 });
+  })
+    .sort({ order: 1, createdAt: -1 })
+    .lean();
 };
 
 export const getPublicProjectBySlug = async (slug) => {
@@ -53,10 +55,15 @@ export const getPublicProjectBySlug = async (slug) => {
   });
 
   if (!project) {
-    throw new Error("Project not found");
+    throw Object.assign(new Error("Project not found"), { statusCode: 404 });
   }
 
   return project;
+};
+
+export const reorderProjects = async (ids) => {
+  await Promise.all(ids.map((id, order) => Project.updateOne({ _id: id }, { $set: { order } })));
+  return true;
 };
 
 export const updateProject = async (projectId, updateData) => {
