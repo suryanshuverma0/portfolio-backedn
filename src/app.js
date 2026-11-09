@@ -24,6 +24,7 @@ import certificateRoutes from "./modules/certificates/certificate.routes.js"
 import projectRoutes from "./modules/projects/project.routes.js";
 import analyticsRoutes from "./modules/analytics/analytics.routes.js";
 import settingsRoutes from "./modules/settings/settings.routes.js";
+import appearanceRoutes from "./modules/appearance/appearance.routes.js";
 import googleAuthRoutes from "./modules/google-auth/googleAuth.routes.js";
 import blogRoutes from "./modules/blog/blog.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
@@ -118,6 +119,7 @@ app.use("/api/v1/certificates", certificateRoutes);
 app.use("/api/v1/projects", projectRoutes);
 app.use("/api/v1/analytics", analyticsRoutes);
 app.use("/api/v1/settings", settingsRoutes);
+app.use("/api/v1/appearance", appearanceRoutes);
 app.use("/api/v1/google-auth", googleAuthRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/contact", contactRoutes);
