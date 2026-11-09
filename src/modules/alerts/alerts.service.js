@@ -40,8 +40,13 @@ export const registerOwnerDevice = async (visitorId) => {
   if (!visitorId) return;
   const settings = await getAlertSettings();
   if (settings.ownerVisitorIds.includes(visitorId)) return;
-  // Keep the 20 most recent devices.
-  await AlertSettings.updateOne({}, { $push: { ownerVisitorIds: { $each: [visitorId], $slice: -20 } } }, { upsert: true });
+  // Keep the 20 most recent devices. The $ne guard makes the add atomic —
+  // the cached check above can be stale, and concurrent calls used to push
+  // the same id twice. (getAlertSettings has already created the document.)
+  await AlertSettings.updateOne(
+    { ownerVisitorIds: { $ne: visitorId } },
+    { $push: { ownerVisitorIds: { $each: [visitorId], $slice: -20 } } },
+  );
   settingsCache = { value: null, at: 0 };
 };
 
