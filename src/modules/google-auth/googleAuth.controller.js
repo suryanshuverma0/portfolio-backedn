@@ -1,6 +1,8 @@
 import { googleLogin } from "./googleAuth.service.js";
 import { recordLogin } from "../audit/audit.service.js";
 import { startSession } from "../auth/session.service.js";
+import { createChallenge } from "../auth/mfa.service.js";
+import User from "../auth/auth.model.js";
 
 /*
   Cookie options are duplicated from the password-auth controller on purpose,
@@ -35,6 +37,14 @@ export const googleLoginController = async (req, res, next) => {
     }
 
     const { user } = result;
+
+    // Two-factor on: finish via POST /account/mfa/verify.
+    const account = await User.findById(user.id || user._id).select("is2FAEnabled").lean();
+    if (account?.is2FAEnabled) {
+      const challenge = await createChallenge({ _id: user.id || user._id }, "google");
+      return res.status(200).json({ success: true, message: "Enter your authentication code", data: { mfaRequired: true, challenge } });
+    }
+
     recordLogin(req, { user, method: "google", success: true });
 
     const { accessToken, refreshToken } = await startSession(req, user, "google");

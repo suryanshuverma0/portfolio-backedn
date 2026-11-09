@@ -19,6 +19,8 @@ import {
   setAuthCookies,
 } from "./session.service.js";
 import { notifySecurityEvent } from "../security/security.service.js";
+import { createChallenge } from "./mfa.service.js";
+import User from "./auth.model.js";
 export const registerController = async (req, res, next) => {
   try {
     const { email, password } = req.validatedData;
@@ -70,6 +72,14 @@ export const loginController = async (req, res, next) => {
     } catch (error) {
       recordLogin(req, { email, method: "password", success: false, reason: error.message });
       throw error;
+    }
+
+    // Two-factor on: hand back a short-lived challenge instead of a session;
+    // POST /account/mfa/verify finishes the sign-in.
+    const account = await User.findById(data.user.id).select("is2FAEnabled").lean();
+    if (account?.is2FAEnabled) {
+      const challenge = await createChallenge({ _id: data.user.id }, "password");
+      return res.status(200).json({ success: true, message: "Enter your authentication code", data: { mfaRequired: true, challenge } });
     }
 
     recordLogin(req, { user: data.user, email, method: "password", success: true });

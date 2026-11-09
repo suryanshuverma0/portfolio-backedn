@@ -53,10 +53,30 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    // Authenticator-app MFA: the seed is stored sealed (AES-GCM, see
+    // utils/secretBox.js); backup codes as SHA-256 hashes; the last accepted
+    // time step blocks code replays.
     twoFactorSecret: {
       type: String,
       default: null,
       select: false,
+    },
+
+    twoFactorBackupCodes: {
+      type: [String],
+      default: [],
+      select: false,
+    },
+
+    twoFactorLastStep: {
+      type: Number,
+      default: -1,
+      select: false,
+    },
+
+    twoFactorEnabledAt: {
+      type: Date,
+      default: null,
     },
 
     passwordResetToken: {

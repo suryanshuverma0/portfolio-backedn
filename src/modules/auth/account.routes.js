@@ -13,6 +13,7 @@ import { startSession, setAuthCookies, revokeAllSessions } from "./session.servi
 import { blockGuard } from "../blocklist/blocklist.service.js";
 import { recordLogin } from "../audit/audit.service.js";
 import { notifySecurityEvent, recordOffense } from "../security/security.service.js";
+import * as mfa from "./mfa.service.js";
 import { getClientIp, getVisitorNetworkMeta } from "../analytics/analytics.utils.js";
 
 /* ---------------------------------------------------------------------------
@@ -57,10 +58,13 @@ const changePasswordSchema = z
   .refine((d) => d.newPassword !== d.currentPassword, { message: "Choose a password different from your current one", path: ["newPassword"] });
 
 const redeemSchema = z.object({ token: z.string().min(20).max(100) });
+const codeSchema = z.object({ code: z.string().trim().min(6).max(20) });
+const mfaVerifySchema = z.object({ challenge: z.string().min(20).max(100), code: z.string().trim().min(6).max(20) });
 
 const changePasswordLimiter = slidingWindowLimiter({ prefix: "account-password", limit: 6, windowInSeconds: 15 * 60 });
 const qrCreateLimiter = slidingWindowLimiter({ prefix: "account-qr-create", limit: 20, windowInSeconds: 10 * 60, countsAsOffense: false });
 const qrRedeemLimiter = slidingWindowLimiter({ prefix: "account-qr-redeem", limit: 10, windowInSeconds: 60 });
+const mfaLimiter = slidingWindowLimiter({ prefix: "account-mfa", limit: 10, windowInSeconds: 5 * 60 });
 
 const deviceName = (req) => {
   const meta = getVisitorNetworkMeta(req);
@@ -100,6 +104,43 @@ router.post(
     }).catch(() => {});
 
     return { ok: true, role: user.role };
+  }),
+);
+
+/* ---------- public: second step of a sign-in with MFA ---------- */
+
+router.post(
+  "/mfa/verify",
+  blockGuard(),
+  mfaLimiter,
+  validate(mfaVerifySchema),
+  handle(async (req, res) => {
+    let result;
+    try {
+      result = await mfa.redeemChallenge(req.validatedData.challenge, req.validatedData.code);
+    } catch (error) {
+      recordOffense(getClientIp(req), "login_failed");
+      recordLogin(req, { method: "password", success: false, reason: `mfa: ${error.message}` });
+      throw error;
+    }
+
+    const { user, method, via, backupCodesLeft } = result;
+    const tokens = await startSession(req, user, method);
+    setAuthCookies(res, tokens);
+    user.lastLoginAt = new Date();
+    await user.save({ validateBeforeSave: false });
+    recordLogin(req, { user, method, success: true });
+
+    if (via === "backup") {
+      notifySecurityEvent({
+        title: "A backup code was used to sign in",
+        body: `${backupCodesLeft} backup code${backupCodesLeft === 1 ? "" : "s"} left. Make new ones under Security if you're running low.`,
+        link: "/dashboard/security",
+        ip: getClientIp(req),
+      }).catch(() => {});
+    }
+
+    return { id: user._id, email: user.email, role: user.role };
   }),
 );
 
@@ -146,6 +187,32 @@ router.post(
     return { hasPassword: true, signedOut };
   }),
 );
+
+/* ---------- MFA management ---------- */
+
+router.get("/mfa", handle((req) => mfa.mfaStatus(req.user._id)));
+router.post("/mfa/setup", mfaLimiter, handle((req) => mfa.startSetup(req.user)));
+router.post(
+  "/mfa/enable",
+  mfaLimiter,
+  validate(codeSchema),
+  handle(async (req) => {
+    const result = await mfa.confirmSetup(req.user._id, req.validatedData.code);
+    notifySecurityEvent({ title: "Two-factor sign-in turned on", body: `Turned on from ${deviceName(req)}.`, link: "/dashboard/security", ip: getClientIp(req) }).catch(() => {});
+    return result;
+  }),
+);
+router.post(
+  "/mfa/disable",
+  mfaLimiter,
+  validate(codeSchema),
+  handle(async (req) => {
+    const result = await mfa.disable(req.user._id, req.validatedData.code);
+    notifySecurityEvent({ title: "Two-factor sign-in turned OFF", body: `Turned off from ${deviceName(req)}. If this wasn't you, change your password now.`, link: "/dashboard/security", ip: getClientIp(req) }).catch(() => {});
+    return result;
+  }),
+);
+router.post("/mfa/backup-codes", mfaLimiter, validate(codeSchema), handle((req) => mfa.regenerateBackupCodes(req.user._id, req.validatedData.code)));
 
 router.post(
   "/qr",
