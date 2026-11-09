@@ -1,4 +1,5 @@
 import { Note, Notebook, NoteVersion } from "../notes/notes.model.js";
+import { plannerStats } from "../planner/planner.routes.js";
 
 /* ---------------------------------------------------------------------------
    LIFE OVERVIEW — the numbers behind the life dashboard. Each area of the
@@ -68,6 +69,7 @@ const notesBlock = async (days) => {
 
 export const lifeOverview = async (query = {}) => {
   const days = [7, 30, 90, 365].includes(Number(query.days)) ? Number(query.days) : 30;
-  const notes = await notesBlock(days);
-  return { days, notes, generatedAt: new Date() };
+  const today = /^\d{4}-\d{2}-\d{2}$/.test(query.today || "") ? query.today : new Date().toISOString().slice(0, 10);
+  const [notes, planner] = await Promise.all([notesBlock(days), plannerStats({ today, days })]);
+  return { days, notes, planner, generatedAt: new Date() };
 };
