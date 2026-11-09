@@ -1,6 +1,7 @@
 import express from "express";
 
 import protectAdmin from "../../middleware/protectAdmin.middleware.js";
+import requireLifeUnlock from "../life/requireLifeUnlock.middleware.js";
 import validate from "../../middleware/validate.middleware.js";
 import * as c from "./notes.controller.js";
 import {
@@ -14,9 +15,10 @@ import {
   publishSchema,
 } from "./notes.validation.js";
 
-// Private notes — every route is admin-only.
+// Private notes — admin-only, and behind the life lock.
 const router = express.Router();
 router.use(protectAdmin);
+router.use(requireLifeUnlock);
 
 router.get("/tree", c.getTree);
 router.get("/search", c.search);

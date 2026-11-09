@@ -51,6 +51,13 @@ const checkCode = async (user, code) => {
   return "backup";
 };
 
+// For step-up checks elsewhere (e.g. resetting the life lock).
+export const verifyMfaCode = async (userId, code) => {
+  const user = await loadSecrets(userId);
+  if (!user?.is2FAEnabled) return null;
+  return checkCode(user, code);
+};
+
 export const mfaStatus = async (userId) => {
   const user = await User.findById(userId).select("+twoFactorBackupCodes is2FAEnabled twoFactorEnabledAt");
   return {

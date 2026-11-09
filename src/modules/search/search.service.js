@@ -72,7 +72,8 @@ const SOURCES = [
   },
 ];
 
-export const searchAdmin = async (query) => {
+// Notes only show up while the life area is unlocked.
+export const searchAdmin = async (query, { includeNotes = false } = {}) => {
   const text = String(query || "").trim().slice(0, 80);
 
   if (text.length < 2) return { query: text, results: [] };
@@ -80,7 +81,7 @@ export const searchAdmin = async (query) => {
   const re = new RegExp(escapeRegex(text), "i");
 
   const groups = await Promise.all(
-    SOURCES.map(async (source) => {
+    SOURCES.filter((source) => includeNotes || source.type !== "note").map(async (source) => {
       try {
         const docs = await source.find(re);
         return docs.map((doc) => ({ type: source.type, id: String(doc._id), ...source.map(doc) }));
