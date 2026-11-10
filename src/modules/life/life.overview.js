@@ -1,5 +1,6 @@
 import { Note, Notebook, NoteVersion } from "../notes/notes.model.js";
 import { plannerStats } from "../planner/planner.routes.js";
+import { Bookmark } from "../bookmarks/bookmarks.routes.js";
 
 /* ---------------------------------------------------------------------------
    LIFE OVERVIEW — the numbers behind the life dashboard. Each area of the
@@ -67,9 +68,21 @@ const notesBlock = async (days) => {
   };
 };
 
+const bookmarksBlock = async (days) => {
+  const since = new Date(Date.now() - days * DAY);
+  const [total, unread, added, categories, opened] = await Promise.all([
+    Bookmark.countDocuments({}),
+    Bookmark.countDocuments({ status: "unread" }),
+    Bookmark.countDocuments({ createdAt: { $gte: since } }),
+    Bookmark.aggregate([{ $group: { _id: "$category", n: { $sum: 1 } } }, { $sort: { n: -1 } }, { $limit: 8 }]),
+    Bookmark.find({ openCount: { $gt: 0 } }).sort({ openCount: -1 }).limit(5).select("title url icon openCount").lean(),
+  ]);
+  return { total, unread, added, categories: categories.map((c) => ({ label: c._id || "Uncategorised", value: c.n })), mostOpened: opened.map((b) => ({ id: String(b._id), title: b.title, url: b.url, icon: b.icon, opens: b.openCount })) };
+};
+
 export const lifeOverview = async (query = {}) => {
   const days = [7, 30, 90, 365].includes(Number(query.days)) ? Number(query.days) : 30;
   const today = /^\d{4}-\d{2}-\d{2}$/.test(query.today || "") ? query.today : new Date().toISOString().slice(0, 10);
-  const [notes, planner] = await Promise.all([notesBlock(days), plannerStats({ today, days })]);
-  return { days, notes, planner, generatedAt: new Date() };
+  const [notes, planner, bookmarks] = await Promise.all([notesBlock(days), plannerStats({ today, days }), bookmarksBlock(days)]);
+  return { days, notes, planner, bookmarks, generatedAt: new Date() };
 };
