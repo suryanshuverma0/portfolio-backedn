@@ -4,6 +4,7 @@ import {
 } from "./upload.service.js";
 
 import logger from "../../utils/logger.js";
+import { isRealImage, safeFolder } from "../../middleware/upload.middleware.js";
 
 export const uploadImageController = async (
   req,
@@ -27,8 +28,11 @@ export const uploadImageController = async (
       });
     }
 
-    const folder =
-      req.body.folder || "misc";
+    if (!isRealImage(req.file.buffer)) {
+      return res.status(400).json({ success: false, message: "That file isn't a real image" });
+    }
+
+    const folder = safeFolder(req.body.folder);
 
     const image = await uploadImage(
       req.file.buffer,
@@ -74,8 +78,11 @@ export const uploadImagesController = async (
       });
     }
 
-    const folder =
-      req.body.folder || "misc";
+    if (req.files.some((file) => !isRealImage(file.buffer))) {
+      return res.status(400).json({ success: false, message: "One of those files isn't a real image" });
+    }
+
+    const folder = safeFolder(req.body.folder);
 
     const images = await uploadImages(
       req.files,

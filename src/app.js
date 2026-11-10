@@ -97,6 +97,33 @@ app.use("/api/v1/backups/restore", express.json({ limit: "50mb" }));
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
 app.use(cookieParser());
+
+/*
+  CSRF guard. Session cookies are SameSite=None (the API and the site live
+  on different domains), so a hostile page could make the browser send
+  them along with a cross-site form or fetch. Any state-changing request
+  must therefore come from one of our own origins. Requests without an
+  Origin header (curl, server-to-server) carry no browser cookies by
+  accident and pass; the literal "null" origin (sandboxed frames,
+  file://) does not.
+*/
+const TRUSTED_ORIGINS = new Set(["http://localhost:5173", "https://suryanshuverma.com.np", "https://www.suryanshuverma.com.np"]);
+app.use((req, res, next) => {
+  if (["GET", "HEAD", "OPTIONS"].includes(req.method)) return next();
+  const origin = req.get("origin");
+  if (origin === undefined) {
+    const referer = req.get("referer");
+    if (!referer) return next();
+    try {
+      if (TRUSTED_ORIGINS.has(new URL(referer).origin)) return next();
+    } catch {
+      /* fall through */
+    }
+    return res.status(403).json({ success: false, message: "Cross-site request blocked" });
+  }
+  if (TRUSTED_ORIGINS.has(origin)) return next();
+  return res.status(403).json({ success: false, message: "Cross-site request blocked" });
+});
 // app.use(mongoSanitize());
 app.use(hpp());
 app.use(pinoHttp({ logger }));
@@ -105,14 +132,18 @@ app.use(pinoHttp({ logger }));
 // UI. Helmet's default CSP (script-src 'self', no 'unsafe-inline') blocks
 // swagger-ui-express's own inline bootstrap script, so it's relaxed only
 // for this one path — every other route keeps the strict default.
-app.get("/api-docs.json", (req, res) => {
-  res.status(200).json(openapiSpec);
-});
-app.use("/api-docs", (req, res, next) => {
-  res.removeHeader("Content-Security-Policy");
-  next();
-});
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
+// The API map is only published outside production (or when explicitly
+// enabled) — in production it just helps an attacker enumerate routes.
+if (process.env.NODE_ENV !== "production" || process.env.PUBLIC_API_DOCS === "true") {
+  app.get("/api-docs.json", (req, res) => {
+    res.status(200).json(openapiSpec);
+  });
+  app.use("/api-docs", (req, res, next) => {
+    res.removeHeader("Content-Security-Policy");
+    next();
+  });
+  app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
+}
 
 app.get("/", (req, res) => {
   res.status(200).json({ success: true, message: "Portfolio API running" });

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 
 import User from "./auth.model.js";
 import { isAdminEmail } from "../../utils/adminEmails.js";
@@ -70,7 +71,7 @@ export const registerUser = async (email, password) => {
 
   if (existingUser) {
     logger.warn({ action: "REGISTER_FAILED", email, reason: "already_exists" });
-    throw new Error("User already exists");
+    throw Object.assign(new Error("User already exists"), { statusCode: 409 });
   }
 
   const user = await User.create({
@@ -104,39 +105,44 @@ export const registerUser = async (email, password) => {
   };
 };
 
+// Same message, status and timing for every credential failure, so the
+// login form can't be used to find out which emails have accounts (or
+// which sign in with Google). Unknown accounts still pay for a bcrypt
+// comparison against a throwaway hash.
+const DUMMY_HASH = bcrypt.hashSync(crypto.randomBytes(16).toString("hex"), 12);
+const badCredentials = () =>
+  Object.assign(new Error("Invalid email or password. If you signed up with Google or a passkey, use that instead."), { statusCode: 401 });
+
 export const loginUser = async (email, password) => {
   const user = await User.findOne({
     email,
   }).select("+password");
 
-  if (!user) {
-    logger.warn({ action: "LOGIN_FAILED", email, reason: "no_account" });
-    throw new Error("Invalid credentials");
+  // isGoogleUser alone isn't enough to block this — a linked account has
+  // both a password AND Google, and should be able to use either. Only
+  // accounts that never had a password set can't log in this way.
+  if (!user || !user.password) {
+    await bcrypt.compare(String(password), DUMMY_HASH);
+    logger.warn({ action: "LOGIN_FAILED", email, reason: user ? "no_password_set" : "no_account" });
+    throw badCredentials();
   }
-
-  if (!user.isActive) {
-    logger.warn({ action: "LOGIN_FAILED", email, reason: "account_disabled" });
-    throw new Error("Account disabled");
-  }
-
-   // isGoogleUser alone isn't enough to block this — a linked account has
-   // both a password AND Google, and should be able to use either. Only
-   // block accounts that never had a password set at all.
-   if (!user.password) {
-    logger.warn({ action: "LOGIN_FAILED", email, reason: "google_only_account" });
-    throw new Error("Please login using Google");
-  }
-
-  const admin = isAdminEmail(user.email);
-
-  await assertAccessAllowed(admin, user.email);
 
   const isPasswordCorrect = await user.comparePassword(password);
 
   if (!isPasswordCorrect) {
     logger.warn({ action: "LOGIN_FAILED", email, reason: "bad_password" });
-    throw new Error("Invalid credentials");
+    throw badCredentials();
   }
+
+  // Only reveal account state to someone who knows the password.
+  if (!user.isActive) {
+    logger.warn({ action: "LOGIN_FAILED", email, reason: "account_disabled" });
+    throw Object.assign(new Error("Account disabled"), { statusCode: 403 });
+  }
+
+  const admin = isAdminEmail(user.email);
+
+  await assertAccessAllowed(admin, user.email);
 
   user.role = admin ? "admin" : "user";
 
@@ -224,7 +230,7 @@ export const resetPassword = async (token, password) => {
   }).select("+passwordResetToken +passwordResetExpires");
 
   if (!user) {
-    throw new Error("Invalid or expired token");
+    throw Object.assign(new Error("Invalid or expired token"), { statusCode: 400 });
   }
 
   await assertAccessAllowed(isAdminEmail(user.email), user.email);
@@ -249,7 +255,7 @@ export const resetPassword = async (token, password) => {
 
 export const refreshAccessToken = async (refreshToken) => {
   if (!refreshToken) {
-    throw new Error("Refresh token missing");
+    throw Object.assign(new Error("Refresh token missing"), { statusCode: 401 });
   }
 
   const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
@@ -257,14 +263,14 @@ export const refreshAccessToken = async (refreshToken) => {
   const user = await User.findById(decoded.id).select("+refreshToken");
 
   if (!user) {
-    throw new Error("User not found");
+    throw Object.assign(new Error("Invalid refresh token"), { statusCode: 401 });
   }
   if (!user.isActive) {
-    throw new Error("Account disabled");
+    throw Object.assign(new Error("Account disabled"), { statusCode: 403 });
   }
 
   if (user.refreshToken !== refreshToken) {
-    throw new Error("Invalid refresh token");
+    throw Object.assign(new Error("Invalid refresh token"), { statusCode: 401 });
   }
 
   const newAccessToken = generateAccessToken(user._id);

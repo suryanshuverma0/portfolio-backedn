@@ -57,17 +57,17 @@ export const googleLogin = async (credential) => {
 
     payload = ticket.getPayload();
   } catch {
-    throw new Error("Invalid Google credential");
+    throw Object.assign(new Error("Invalid Google credential"), { statusCode: 401 });
   }
 
   if (!payload) {
-    throw new Error("Invalid Google credential");
+    throw Object.assign(new Error("Invalid Google credential"), { statusCode: 401 });
   }
 
   const { sub: googleId, email, email_verified: emailVerified } = payload;
 
   if (!email || !emailVerified) {
-    throw new Error("Google account email is not verified");
+    throw Object.assign(new Error("Google account email is not verified"), { statusCode: 403 });
   }
 
   const normalizedEmail = email.toLowerCase();
@@ -97,7 +97,7 @@ export const googleLogin = async (credential) => {
 
   if (!user.isActive) {
     logger.warn({ action: "LOGIN_FAILED", email: normalizedEmail, method: "google", reason: "account_disabled" });
-    throw new Error("Account disabled");
+    throw Object.assign(new Error("Account disabled"), { statusCode: 403 });
   }
 
   user.role = admin ? "admin" : "user";
