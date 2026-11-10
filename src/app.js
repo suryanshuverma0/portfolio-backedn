@@ -34,6 +34,7 @@ import lifeRoutes from "./modules/life/life.routes.js";
 import plannerRoutes from "./modules/planner/planner.routes.js";
 import bookmarkRoutes from "./modules/bookmarks/bookmarks.routes.js";
 import vaultRoutes from "./modules/vault/vault.routes.js";
+import boardRoutes from "./modules/boards/boards.routes.js";
 import googleAuthRoutes from "./modules/google-auth/googleAuth.routes.js";
 import blogRoutes from "./modules/blog/blog.routes.js";
 import contactRoutes from "./modules/contact/contact.routes.js";
@@ -89,6 +90,8 @@ app.use("/api/v1/bookmarks", express.json({ limit: "3mb" }));
 // Vault files arrive already encrypted, as raw bytes.
 app.use("/api/v1/vault/files", express.raw({ type: "application/octet-stream", limit: "26mb" }));
 app.use("/api/v1/vault", express.json({ limit: "1mb" }));
+// Board scenes carry pasted images (base64) — same ceiling as notes.
+app.use("/api/v1/boards", express.json({ limit: "8mb" }));
 // Restoring a notes backup uploads the whole JSON file.
 app.use("/api/v1/backups/restore", express.json({ limit: "50mb" }));
 app.use(express.json({ limit: "10kb" }));
@@ -148,6 +151,7 @@ app.use("/api/v1/life", lifeRoutes);
 app.use("/api/v1/planner", plannerRoutes);
 app.use("/api/v1/bookmarks", bookmarkRoutes);
 app.use("/api/v1/vault", vaultRoutes);
+app.use("/api/v1/boards", boardRoutes);
 app.use("/api/v1/google-auth", googleAuthRoutes);
 app.use("/api/v1/blog", blogRoutes);
 app.use("/api/v1/contact", contactRoutes);
